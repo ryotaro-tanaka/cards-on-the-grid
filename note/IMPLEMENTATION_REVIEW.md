@@ -7,8 +7,9 @@
   **Cloudflare Durable Objects（1ルーム=1オブジェクト）を中継にした準P2P構成**が現実的。
 - クライアント主導（前処理をフロントに寄せる）も可能だが、
   **対戦ゲームとしての不正対策・再接続整合性のため、最終判定はサーバー側（DO）に寄せる**べき。
-- モバイル展開は、まず **PWAで検証 → 必要ならCapacitorでiOS/Android包む**の順が、
-  Windows 11環境での開発コスト最小。
+- 技術前提は **フロント: React（TypeScript） / バックエンド: Cloudflare Workers（TypeScript）**。
+- 展開方針は **まずPWA**、その後に必要なら **Electron/Tauriでデスクトップ化**、
+  **CapacitorでiOS/Android化** を進めるのが現実的。
 
 ## 1. Cloudflareでの実装可否
 
@@ -91,12 +92,13 @@
 - レート/マッチング
 - 監査ログ・不正検知
 
-## 6. PWA vs ネイティブ（Windows 11前提）
+## 6. PWAファースト + 将来のデスクトップ/モバイル展開（Windows 11前提）
 
 ### 推奨順序
 
 1. **PWAで先に公開**（最短・低コスト）
-2. 必要なら **CapacitorでiOS/Androidアプリ化**
+2. 必要なら **Electron/Tauriでデスクトップアプリ化**
+3. 必要なら **CapacitorでiOS/Androidアプリ化**
 
 ### Windows 11での現実
 
@@ -121,9 +123,9 @@
 
 ## 8. 具体的な技術選択（最小）
 
-- フロント：React or Svelte + Zustand等
+- フロント：React（TypeScript） + 状態管理（Zustand等）
 - 共有ロジック：TypeScriptでルールエンジンを共通化
-- サーバー：Workers + Durable Objects
+- サーバー：Cloudflare Workers（TypeScript） + Durable Objects
 - 通信：WebSocket（イベント駆動）
 - テスト：
   - ルールのプロパティテスト
@@ -132,7 +134,7 @@
 ## 最終提案
 
 - あなたの前提（Web経験中心）に最も合うのは、
-  **「Cloudflareサーバーレス + authoritative server + PWA先行」**。
+  **「React + Cloudflare Workers（TS） + authoritative server + PWA先行」**。
 - P2Pは「将来の最適化候補」に留め、まずはDO中継でゲーム成立を優先するのが安全。
 
 ## 9. ローカルLLM（Ollama / llama.cpp / LM Studio）で
