@@ -2,12 +2,12 @@
   "tasks": [
     {
       "id": "T001",
-      "title": "Define core types: GameState, Intent, Event",
+      "title": "Add core types in packages/core/src/types.ts: GameState, Intent, Event. Do NOT edit any tsconfig files.",
       "done": false
     },
     {
       "id": "T002",
-      "title": "Implement applyIntent(state, intent) -> {state, events} for MOVE and END_TURN (no rules yet)",
+      "title": "Export these types from packages/core/src/index.ts by re-exporting from ./types. Do NOT edit any tsconfig files.",
       "done": false
     }
   ]

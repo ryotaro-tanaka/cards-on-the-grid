@@ -61,29 +61,28 @@ run_aider_once() {
   local task_title="$2"
   local errlog="$3"
 
-  # Aiderに触らせるファイルは最小に絞る（core中心）
-  # 既存が無ければ作る前提でOK
   aider --model "$MODEL" \
     --yes --no-gitignore \
     --edit-format diff \
     packages/core/src/index.ts \
+    packages/core/src/types.ts \
     --message "
-あなたはこのリポジトリの実装エージェントです。
-制約:
-- 変更は最小差分。既存内容の削除は禁止（不要なら別ファイルへ移動/追記で対応）。
-- README.md や note/ 配下は変更しない。
-- 今回のタスク以外は触らない。
-- TypeScriptの型安全を優先。
+  あなたはこのリポジトリの実装エージェントです。
 
-タスク: [$task_id] $task_title
+  絶対制約:
+  - tsconfig.json / packages/**/tsconfig.json は編集禁止（提案も禁止）。
+  - README.md と note/ 配下は編集禁止。
+  - 変更は最小差分。既存内容の削除は禁止。
+  - 今回のタスク以外は触らない。
 
-直近の検証エラー（あれば）:
-$( [ -f "$errlog" ] && tail -n 80 "$errlog" || echo "(none)" )
+  タスク: [$task_id] $task_title
 
-達成条件:
-- npm run typecheck が通ること
-- タスク要件を満たす最低限の実装になっていること
-"
+  直近の検証エラー（あれば）:
+  $( [ -f "$errlog" ] && tail -n 80 "$errlog" || echo "(none)" )
+
+  達成条件:
+  - npm run typecheck が通ること
+  "
 }
 
 ensure_clean_branch
