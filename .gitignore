@@ -1,1 +1,19 @@
+# Aider
 .aider*
+
+# Node
+node_modules/
+
+# Build output
+packages/*/dist/
+
+# TypeScript
+*.tsbuildinfo
+
+# Env files
+.env
+.env.*
+
+# Loop state (local only)
+tasks/loop_state.json
+tasks/progress.md
