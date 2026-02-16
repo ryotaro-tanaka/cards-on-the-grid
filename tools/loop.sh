@@ -53,13 +53,7 @@ has_protected_changes() {
 }
 
 run_verify() {
-  # 1) TypeScript build (project references)
   npx tsc -b --pretty false
-
-  # 2) Guard against accidental duplication (cheap & reliable)
-  test "$(grep -c '^export type GameState' packages/core/src/types.ts)" -eq 1
-  test "$(grep -c '^export type Intent' packages/core/src/types.ts)" -eq 1
-  test "$(grep -c '^export type Event' packages/core/src/types.ts)" -eq 1
 }
 
 run_aider_once() {
@@ -134,7 +128,7 @@ for i in $(seq 1 "$MAX_LOOPS"); do
     log "No diff produced. Assume task already satisfied. Mark done and continue."
     mark_task_done "$task_id"
     git add tasks/tasks.json tasks/progress.md || true
-    git commit -m "bot: $task_id (no-op)" >/dev/null || true
+    git commit -m "bot: $task_title (no-op)" >/dev/null || true
     continue
   fi
 

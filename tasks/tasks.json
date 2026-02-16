@@ -2,13 +2,48 @@
   "tasks": [
     {
       "id": "T001",
-      "title": "Add core types in packages/core/src/types.ts: GameState, Intent, Event. Do NOT edit any tsconfig files.",
+      "title": "Add core type declarations (GameState, Intent, Event) in packages/core/src/types.ts.",
       "done": true
     },
     {
       "id": "T002",
-      "title": "Export these types from packages/core/src/index.ts by re-exporting from ./types. Do NOT edit any tsconfig files.",
+      "title": "Re-export core types from packages/core/src/index.ts.",
       "done": true
+    },
+    {
+      "id": "T003",
+      "title": "Define minimal domain types in packages/core/src/types.ts: PlayerId, Coord, PieceId.",
+      "done": false
+    },
+    {
+      "id": "T004",
+      "title": "Expand GameState in packages/core/src/types.ts to include: players (2), activePlayer, and a board snapshot (pieces with coord + owner).",
+      "done": false
+    },
+    {
+      "id": "T005",
+      "title": "Convert Intent into a discriminated union in packages/core/src/types.ts: EndTurn | Move (pieceId, to). Keep it minimal.",
+      "done": false
+    },
+    {
+      "id": "T006",
+      "title": "Convert Event into a discriminated union in packages/core/src/types.ts: TurnEnded | PieceMoved. Keep it minimal.",
+      "done": false
+    },
+    {
+      "id": "T007",
+      "title": "Add applyIntent(state, intent) function in packages/core/src/applyIntent.ts that returns { state, events }. Implement EndTurn and Move only.",
+      "done": false
+    },
+    {
+      "id": "T008",
+      "title": "Export applyIntent from packages/core/src/index.ts.",
+      "done": false
+    },
+    {
+      "id": "T009",
+      "title": "Add a tiny unit test (or script) that runs applyIntent for Move and EndTurn and asserts resulting state/events. Keep it minimal; no new frameworks.",
+      "done": false
     }
   ]
 }

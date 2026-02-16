@@ -15,5 +15,6 @@ packages/*/dist/
 .env.*
 
 # Loop state (local only)
+tasks/last_error.log
 tasks/loop_state.json
 tasks/progress.md
