@@ -3,7 +3,7 @@
     {
       "id": "T001",
       "title": "Add core types in packages/core/src/types.ts: GameState, Intent, Event. Do NOT edit any tsconfig files.",
-      "done": false
+      "done": true
     },
     {
       "id": "T002",
