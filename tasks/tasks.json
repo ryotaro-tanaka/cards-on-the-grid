@@ -13,7 +13,7 @@
     {
       "id": "T003",
       "title": "Define minimal domain types in packages/core/src/types.ts: PlayerId, Coord, PieceId.",
-      "done": false
+      "done": true
     },
     {
       "id": "T004",

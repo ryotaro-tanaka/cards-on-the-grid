@@ -1,3 +1,9 @@
+export type PlayerId = string; // or a more specific type if needed
+
+export type Coord = [number, number]; // Example: [x, y]
+
+export type PieceId = string; // or a more specific type if needed
+
 export type GameState = {
   turn: number;
 };
