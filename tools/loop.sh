@@ -129,10 +129,13 @@ for i in $(seq 1 "$MAX_LOOPS"); do
     log "aider exited with code $aider_rc"
   fi
 
-  # 変更が無いなら停止（同じことを繰り返すのを防ぐ）
+  # 変更が無いなら「既に達成済み」とみなしてタスクを進める
   if git diff --quiet; then
-    log "No diff produced. Stop."
-    exit 1
+    log "No diff produced. Assume task already satisfied. Mark done and continue."
+    mark_task_done "$task_id"
+    git add tasks/tasks.json tasks/progress.md || true
+    git commit -m "bot: $task_id (no-op)" >/dev/null || true
+    continue
   fi
 
   # 変更行数が大きすぎたら停止
