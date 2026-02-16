@@ -8,7 +8,7 @@
     {
       "id": "T002",
       "title": "Export these types from packages/core/src/index.ts by re-exporting from ./types. Do NOT edit any tsconfig files.",
-      "done": false
+      "done": true
     }
   ]
 }
