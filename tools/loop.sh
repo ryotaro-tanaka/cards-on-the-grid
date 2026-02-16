@@ -12,7 +12,7 @@ cd "$ROOT"
 # 破壊防止：重要ファイルは触らせない（万一変更されたら停止）
 PROTECTED_REGEX='^(README\.md|note/|docs/|LICENSE)'
 
-log() { printf "%s %s\n" "$(date '+%F %T')" "$*" | tee -a tasks/progress.md >/dev/null; }
+log() { printf "%s %s\n" "$(date '+%F %T')" "$*" | tee -a tasks/progress.md; }
 
 ensure_clean_branch() {
   if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -53,7 +53,13 @@ has_protected_changes() {
 }
 
 run_verify() {
-  npm run -s typecheck
+  # 1) TypeScript build (project references)
+  npx tsc -b --pretty false
+
+  # 2) Guard against accidental duplication (cheap & reliable)
+  test "$(grep -c '^export type GameState' packages/core/src/types.ts)" -eq 1
+  test "$(grep -c '^export type Intent' packages/core/src/types.ts)" -eq 1
+  test "$(grep -c '^export type Event' packages/core/src/types.ts)" -eq 1
 }
 
 run_aider_once() {
