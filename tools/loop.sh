@@ -70,6 +70,8 @@ run_aider_once() {
   aider --model "$MODEL" \
     --yes --no-gitignore \
     --edit-format diff \
+    --no-auto-commits \
+    --no-show-model-warnings \
     packages/core/src/index.ts \
     packages/core/src/types.ts \
     --message "
@@ -155,9 +157,9 @@ for i in $(seq 1 "$MAX_LOOPS"); do
 
   if [ $verify_rc -eq 0 ]; then
     log "verify: OK"
+    mark_task_done "$task_id"
     git add packages/core tasks/tasks.json tasks/progress.md || true
     git commit -m "bot: $task_id" >/dev/null || true
-    mark_task_done "$task_id"
     log "task marked done: $task_id"
   else
     log "verify: FAIL"
