@@ -1,0 +1,14 @@
+{
+  "tasks": [
+    {
+      "id": "T001",
+      "title": "Define core types: GameState, Intent, Event",
+      "done": false
+    },
+    {
+      "id": "T002",
+      "title": "Implement applyIntent(state, intent) -> {state, events} for MOVE and END_TURN (no rules yet)",
+      "done": false
+    }
+  ]
+}
