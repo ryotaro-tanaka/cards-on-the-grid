@@ -206,7 +206,9 @@ for i in $(seq 1 "$MAX_LOOPS"); do
   fi
 
   errlog="tasks/last_error.log"
-  feedback_context="$(build_feedback_context "$task_id")"
+  recent_verify_summary="$(build_verify_summary)"
+  feedback_context="$(build_feedback_context "$task_id")
+- [recent_verify] ${recent_verify_summary}"
 
   set +e
   run_aider_once "$task_id" "$task_title" "$errlog" "$feedback_context"
