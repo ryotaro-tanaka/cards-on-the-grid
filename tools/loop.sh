@@ -156,7 +156,7 @@ for i in $(seq 1 "$MAX_LOOPS"); do
     log "verify: OK"
     mark_task_done "$task_id"
     git add packages/core tasks/tasks.json tasks/progress.md || true
-    git commit -m "bot: $task_id" >/dev/null || true
+    git commit -m "bot: $task_title" >/dev/null || true
     log "task marked done: $task_id"
   else
     log "verify: FAIL"
