@@ -146,7 +146,8 @@ append_feedback_event() {
 run_aider_once() {
   local task_id="$1"
   local task_title="$2"
-  local feedback_context="$3"
+  local errlog="$3"
+  local feedback_context="$4"
 
   aider --model "$MODEL" \
     --yes --no-gitignore \
@@ -165,6 +166,9 @@ run_aider_once() {
   - 今回のタスク以外は触らない。
 
   タスク: [$task_id] $task_title
+
+  直近の検証エラー（あれば）:
+  $( [ -f "$errlog" ] && tail -n 40 "$errlog" || echo "(none)" )
 
   過去の失敗から抽出したヒント:
   $feedback_context
@@ -201,10 +205,11 @@ for i in $(seq 1 "$MAX_LOOPS"); do
     exit 1
   fi
 
+  errlog="tasks/last_error.log"
   feedback_context="$(build_feedback_context "$task_id")"
 
   set +e
-  run_aider_once "$task_id" "$task_title" "$feedback_context"
+  run_aider_once "$task_id" "$task_title" "$errlog" "$feedback_context"
   aider_rc=$?
   set -e
   if [ $aider_rc -ne 0 ]; then
@@ -228,8 +233,7 @@ for i in $(seq 1 "$MAX_LOOPS"); do
     log "No diff produced by aider. Run verify before deciding task state."
   fi
 
-  errlog="tasks/last_error.log"
-  rm -f "$errlog"
+  : > "$errlog"
   set +e
   run_verify > /dev/null 2> "$errlog"
   verify_rc=$?
