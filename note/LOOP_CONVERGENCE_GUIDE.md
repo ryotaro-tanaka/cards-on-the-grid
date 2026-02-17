@@ -13,10 +13,22 @@
    - Gate 1: 型チェック
    - Gate 2: テスト（導入後）
    - Gate 3: lint（必要に応じて）
-3. **失敗回数をタスク単位で管理する**
-   - 全体失敗回数ではなく、taskごとの fail count を使う。
+3. **失敗回数は累積ではなく連続失敗（streak）で管理する**
+   - 成功で 0 に戻す。
+   - これにより「過去に失敗したが今は直った」ケースで不必要に停止しない。
 4. **大きい変更を拒否する**
    - 変更行数上限でモデル暴走を早期停止する。
+
+## no-diff 判定の決定表（安全版）
+
+| aider diff | verify | 判定 | アクション |
+|---|---|---|---|
+| あり | OK | 成功 | task done + commit |
+| あり | FAIL | 失敗 | fail streak++ + reset --hard |
+| なし | OK | 成功（既存実装で達成） | task done + no-code commit |
+| なし | FAIL | 未達 | fail streak++ + task継続（done禁止） |
+
+ポイント: **no-diff を即 done にしない**。必ず verify 成否で判定する。
 
 ## テスト戦略（段階導入）
 
@@ -42,13 +54,14 @@
   - `npm run lint`（script がある場合のみ）
 - 実行結果は `tasks/verify_report.json` に保存。
 - loop本体は verify 実装を固定せず、`verify.sh` のみ呼ぶ。
+- 次プロンプトには「失敗したstep名 + rc + 先頭エラー1行」だけを注入（7B向け最小信号）。
 
 ## 夜間PR自動化ロードマップ
 
 1. **今週**
    - 失敗ログJSONL化
    - verify.sh導入
-   - タスク単位 fail count
+   - タスク単位 fail streak
 2. **次週**
    - coreユニットテスト最小セット
    - 失敗テスト名をプロンプト注入

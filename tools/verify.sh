@@ -53,5 +53,11 @@ fi
 node - <<NODE
 const fs = require('fs');
 const report = JSON.parse(fs.readFileSync('$REPORT_FILE', 'utf8'));
+if (!report.ok) {
+  for (const step of report.steps.filter(s => s.rc !== 0)) {
+    const head = (step.err || step.out || '').split('\n').map(s => s.trim()).filter(Boolean)[0] || '(no detail)';
+    console.error('[verify] ' + step.name + ' failed(rc=' + step.rc + '): ' + head);
+  }
+}
 process.exit(report.ok ? 0 : 1);
 NODE
