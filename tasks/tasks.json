@@ -18,7 +18,7 @@
     {
       "id": "T004",
       "title": "Expand GameState in packages/core/src/types.ts to include: players (2), activePlayer, and a board snapshot (pieces with coord + owner).",
-      "done": false
+      "done": true
     },
     {
       "id": "T005",
