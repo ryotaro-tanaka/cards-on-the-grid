@@ -8,9 +8,14 @@ export type GameState = {
   turn: number;
 };
 
-export type Intent = {
-  // Define your intent properties here
+export type EndTurn = {};
+
+export type Move = {
+  pieceId: PieceId;
+  to: Coord;
 };
+
+export type Intent = EndTurn | Move;
 
 export type Event = {
   // Define your event properties here

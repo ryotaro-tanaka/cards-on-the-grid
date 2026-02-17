@@ -2,6 +2,9 @@
   "tasks": {
     "T004": {
       "failStreak": 0
+    },
+    "T005": {
+      "failStreak": 0
     }
   }
 }

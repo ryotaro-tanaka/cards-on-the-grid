@@ -23,7 +23,7 @@
     {
       "id": "T005",
       "title": "Convert Intent into a discriminated union in packages/core/src/types.ts: EndTurn | Move (pieceId, to). Keep it minimal.",
-      "done": false
+      "done": true
     },
     {
       "id": "T006",
