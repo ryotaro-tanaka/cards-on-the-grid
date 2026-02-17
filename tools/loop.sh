@@ -5,6 +5,8 @@ MODEL="${MODEL:-ollama/qwen2.5-coder:7b}"
 MAX_LOOPS="${MAX_LOOPS:-10}"
 MAX_FAILS="${MAX_FAILS:-3}"
 MAX_CHANGED_LINES="${MAX_CHANGED_LINES:-200}"
+VERIFY_REPORT="${VERIFY_REPORT:-tasks/verify_report.json}"
+FEEDBACK_LOG="${FEEDBACK_LOG:-tasks/feedback.jsonl}"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -53,13 +55,62 @@ has_protected_changes() {
 }
 
 run_verify() {
-  npx tsc -b --pretty false
+  tools/verify.sh "$VERIFY_REPORT"
+}
+
+task_failures_count() {
+  local task_id="$1"
+  if [ ! -f "$FEEDBACK_LOG" ]; then
+    echo "0"
+    return
+  fi
+  node - <<NODE
+const fs = require('fs');
+const p = '$FEEDBACK_LOG';
+const id = '$task_id';
+const n = fs.readFileSync(p, 'utf8').trim().split('\n').filter(Boolean)
+  .map(line => { try { return JSON.parse(line); } catch { return null; } })
+  .filter(Boolean)
+  .filter(x => x.taskId === id && x.type === 'verify_fail').length;
+console.log(String(n));
+NODE
+}
+
+build_feedback_context() {
+  local task_id="$1"
+  if [ ! -f "$FEEDBACK_LOG" ]; then
+    echo "(none)"
+    return
+  fi
+  node - <<NODE
+const fs = require('fs');
+const p = '$FEEDBACK_LOG';
+const id = '$task_id';
+const lines = fs.readFileSync(p, 'utf8').trim().split('\n').filter(Boolean)
+  .map(line => { try { return JSON.parse(line); } catch { return null; } })
+  .filter(Boolean)
+  .filter(x => x.taskId === id)
+  .slice(-3);
+if (!lines.length) {
+  console.log('(none)');
+  process.exit(0);
+}
+for (const item of lines) {
+  console.log(`- [${item.type}] loop=${item.loop} failCount=${item.failCount ?? '-'} hint=${item.hint ?? '-'}`);
+}
+NODE
+}
+
+append_feedback_event() {
+  local payload="$1"
+  printf "%s\n" "$payload" >> "$FEEDBACK_LOG"
 }
 
 run_aider_once() {
   local task_id="$1"
   local task_title="$2"
   local errlog="$3"
+  local feedback_context="$4"
 
   aider --model "$MODEL" \
     --yes --no-gitignore \
@@ -82,8 +133,13 @@ run_aider_once() {
   直近の検証エラー（あれば）:
   $( [ -f "$errlog" ] && tail -n 80 "$errlog" || echo "(none)" )
 
+  過去の失敗から抽出したヒント:
+  $feedback_context
+
   達成条件:
   - npm run typecheck が通ること
+  - tools/verify.sh が通ること
+  - 失敗ログに出ている同一エラーを繰り返さないこと
   "
 }
 
@@ -93,6 +149,7 @@ log "=== Ralph Loop start (model=$MODEL, max_loops=$MAX_LOOPS) ==="
 log "verify command: npm run typecheck"
 
 touch tasks/progress.md
+touch "$FEEDBACK_LOG"
 
 for i in $(seq 1 "$MAX_LOOPS"); do
   log "--- loop $i/$MAX_LOOPS ---"
@@ -114,9 +171,10 @@ for i in $(seq 1 "$MAX_LOOPS"); do
 
   errlog="tasks/last_error.log"
   rm -f "$errlog"
+  feedback_context="$(build_feedback_context "$task_id")"
 
   set +e
-  run_aider_once "$task_id" "$task_title" "$errlog"
+  run_aider_once "$task_id" "$task_title" "$errlog" "$feedback_context"
   aider_rc=$?
   set -e
   if [ $aider_rc -ne 0 ]; then
@@ -126,6 +184,7 @@ for i in $(seq 1 "$MAX_LOOPS"); do
   # 変更が無いなら「既に達成済み」とみなしてタスクを進める
   if git diff --quiet; then
     log "No diff produced. Assume task already satisfied. Mark done and continue."
+    append_feedback_event "$(node -e "console.log(JSON.stringify({ts:new Date().toISOString(),taskId:'$task_id',loop:$i,type:'no_diff'}))")"
     mark_task_done "$task_id"
     git add tasks/tasks.json tasks/progress.md || true
     git commit -m "bot: $task_title (no-op)" >/dev/null || true
@@ -154,6 +213,7 @@ for i in $(seq 1 "$MAX_LOOPS"); do
 
   if [ $verify_rc -eq 0 ]; then
     log "verify: OK"
+    append_feedback_event "$(node -e "console.log(JSON.stringify({ts:new Date().toISOString(),taskId:'$task_id',loop:$i,type:'verify_ok'}))")"
     mark_task_done "$task_id"
     git add packages/core tasks/tasks.json tasks/progress.md || true
     git commit -m "bot: $task_title" >/dev/null || true
@@ -163,8 +223,11 @@ for i in $(seq 1 "$MAX_LOOPS"); do
     log "last error (tail):"
     tail -n 20 "$errlog" | sed 's/^/  /' | tee -a tasks/progress.md >/dev/null
 
-    # 失敗回数カウント（雑にprogress.mdで持つ）
-    fails="$(grep -c '^.*verify: FAIL' tasks/progress.md || true)"
+    hint="$(tail -n 1 "$errlog" | sed 's/"/\"/g')"
+    fails="$(task_failures_count "$task_id")"
+    fails="$((fails + 1))"
+    append_feedback_event "$(node -e "console.log(JSON.stringify({ts:new Date().toISOString(),taskId:'$task_id',loop:$i,type:'verify_fail',failCount:$fails,hint:\"$hint\"}))")"
+
     if [ "$fails" -ge "$MAX_FAILS" ]; then
       log "Too many failures ($fails >= $MAX_FAILS). Stop."
       exit 1
