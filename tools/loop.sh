@@ -5,6 +5,9 @@ MODEL="${MODEL:-ollama/qwen2.5-coder:7b}"
 MAX_LOOPS="${MAX_LOOPS:-10}"
 MAX_FAILS="${MAX_FAILS:-3}"
 MAX_CHANGED_LINES="${MAX_CHANGED_LINES:-200}"
+VERIFY_REPORT="${VERIFY_REPORT:-tasks/verify_report.json}"
+FEEDBACK_LOG="${FEEDBACK_LOG:-tasks/feedback.jsonl}"
+TASK_STATE_FILE="${TASK_STATE_FILE:-tasks/task_state.json}"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -44,7 +47,6 @@ NODE
 }
 
 changed_lines_count() {
-  # 追加+削除の合計
   git diff --numstat | awk '{add+=$1; del+=$2} END{print add+del+0}'
 }
 
@@ -53,13 +55,99 @@ has_protected_changes() {
 }
 
 run_verify() {
-  npx tsc -b --pretty false
+  tools/verify.sh "$VERIFY_REPORT"
+}
+
+init_task_state() {
+  if [ ! -f "$TASK_STATE_FILE" ]; then
+    printf '{"tasks":{}}\n' > "$TASK_STATE_FILE"
+  fi
+}
+
+get_task_fail_streak() {
+  local task_id="$1"
+  node - <<NODE
+const fs = require('fs');
+const p = '$TASK_STATE_FILE';
+const id = '$task_id';
+const s = JSON.parse(fs.readFileSync(p, 'utf8'));
+const n = s.tasks?.[id]?.failStreak ?? 0;
+console.log(String(n));
+NODE
+}
+
+set_task_fail_streak() {
+  local task_id="$1"
+  local streak="$2"
+  node - <<NODE
+const fs = require('fs');
+const p = '$TASK_STATE_FILE';
+const id = '$task_id';
+const streak = Number('$streak');
+const s = JSON.parse(fs.readFileSync(p, 'utf8'));
+s.tasks = s.tasks || {};
+s.tasks[id] = s.tasks[id] || {};
+s.tasks[id].failStreak = streak;
+fs.writeFileSync(p, JSON.stringify(s, null, 2) + '\n');
+NODE
+}
+
+build_feedback_context() {
+  local task_id="$1"
+  if [ ! -f "$FEEDBACK_LOG" ]; then
+    echo "(none)"
+    return
+  fi
+  node - <<NODE
+const fs = require('fs');
+const p = '$FEEDBACK_LOG';
+const id = '$task_id';
+const lines = fs.readFileSync(p, 'utf8').trim().split('\n').filter(Boolean)
+  .map(line => { try { return JSON.parse(line); } catch { return null; } })
+  .filter(Boolean)
+  .filter(x => x.taskId === id)
+  .slice(-3);
+if (!lines.length) {
+  console.log('(none)');
+  process.exit(0);
+}
+for (const item of lines) {
+  const hint = (item.hint || '-').toString().slice(0, 200);
+  console.log('- [' + item.type + '] loop=' + item.loop + ' failStreak=' + (item.failStreak ?? '-') + ' hint=' + hint);
+}
+NODE
+}
+
+build_verify_summary() {
+  if [ ! -f "$VERIFY_REPORT" ]; then
+    echo "(verify report not found)"
+    return
+  fi
+  node - <<NODE
+const fs = require('fs');
+const report = JSON.parse(fs.readFileSync('$VERIFY_REPORT', 'utf8'));
+const failed = (report.steps || []).filter(s => s.rc !== 0);
+if (!failed.length) {
+  console.log('all verify steps passed');
+  process.exit(0);
+}
+for (const s of failed) {
+  const src = (s.err || s.out || '').split('\n').map(x => x.trim()).filter(Boolean)[0] || '(no message)';
+  console.log(s.name + '(rc=' + s.rc + '): ' + src);
+}
+NODE
+}
+
+append_feedback_event() {
+  local payload="$1"
+  printf "%s\n" "$payload" >> "$FEEDBACK_LOG"
 }
 
 run_aider_once() {
   local task_id="$1"
   local task_title="$2"
   local errlog="$3"
+  local feedback_context="$4"
 
   aider --model "$MODEL" \
     --yes --no-gitignore \
@@ -80,19 +168,25 @@ run_aider_once() {
   タスク: [$task_id] $task_title
 
   直近の検証エラー（あれば）:
-  $( [ -f "$errlog" ] && tail -n 80 "$errlog" || echo "(none)" )
+  $( [ -f "$errlog" ] && tail -n 40 "$errlog" || echo "(none)" )
+
+  過去の失敗から抽出したヒント:
+  $feedback_context
 
   達成条件:
-  - npm run typecheck が通ること
+  - tools/verify.sh が通ること
+  - 失敗ログに出ている同一エラーを繰り返さないこと
   "
 }
 
 ensure_clean_branch
 
 log "=== Ralph Loop start (model=$MODEL, max_loops=$MAX_LOOPS) ==="
-log "verify command: npm run typecheck"
+log "verify command: tools/verify.sh"
 
 touch tasks/progress.md
+touch "$FEEDBACK_LOG"
+init_task_state
 
 for i in $(seq 1 "$MAX_LOOPS"); do
   log "--- loop $i/$MAX_LOOPS ---"
@@ -106,72 +200,83 @@ for i in $(seq 1 "$MAX_LOOPS"); do
   task_title="$(echo "$task_line" | cut -f2-)"
   log "task: $task_id $task_title"
 
-  # 直前diffが残っていたら危険なので停止（ループ外の手動介入を想定）
   if ! git diff --quiet; then
     log "Working tree has uncommitted changes. Stop for safety."
     exit 1
   fi
 
   errlog="tasks/last_error.log"
-  rm -f "$errlog"
+  recent_verify_summary="$(build_verify_summary)"
+  feedback_context="$(build_feedback_context "$task_id")"$'\n'"- [recent_verify] ${recent_verify_summary}"
 
   set +e
-  run_aider_once "$task_id" "$task_title" "$errlog"
+  run_aider_once "$task_id" "$task_title" "$errlog" "$feedback_context"
   aider_rc=$?
   set -e
   if [ $aider_rc -ne 0 ]; then
     log "aider exited with code $aider_rc"
   fi
 
-  # 変更が無いなら「既に達成済み」とみなしてタスクを進める
-  if git diff --quiet; then
-    log "No diff produced. Assume task already satisfied. Mark done and continue."
-    mark_task_done "$task_id"
-    git add tasks/tasks.json tasks/progress.md || true
-    git commit -m "bot: $task_title (no-op)" >/dev/null || true
-    continue
+  changed=0
+  if ! git diff --quiet; then
+    changed=1
+    changed_lines="$(changed_lines_count)"
+    log "changed lines(add+del): $changed_lines"
+    if [ "$changed_lines" -gt "$MAX_CHANGED_LINES" ]; then
+      log "Too many changes ($changed_lines > $MAX_CHANGED_LINES). Stop."
+      exit 1
+    fi
+    if has_protected_changes; then
+      log "Protected files changed. Stop."
+      exit 1
+    fi
+  else
+    log "No diff produced by aider. Run verify before deciding task state."
   fi
 
-  # 変更行数が大きすぎたら停止
-  changed="$(changed_lines_count)"
-  log "changed lines(add+del): $changed"
-  if [ "$changed" -gt "$MAX_CHANGED_LINES" ]; then
-    log "Too many changes ($changed > $MAX_CHANGED_LINES). Stop."
-    exit 1
-  fi
-
-  # 保護ファイルを触ったら停止
-  if has_protected_changes; then
-    log "Protected files changed. Stop."
-    exit 1
-  fi
-
-  # 検証
+  : > "$errlog"
   set +e
   run_verify > /dev/null 2> "$errlog"
   verify_rc=$?
   set -e
 
+  verify_summary="$(build_verify_summary)"
+
   if [ $verify_rc -eq 0 ]; then
     log "verify: OK"
+    set_task_fail_streak "$task_id" 0
+    append_feedback_event "$(node -e "console.log(JSON.stringify({ts:new Date().toISOString(),taskId:'$task_id',loop:$i,type:'verify_ok',changed:$changed,hint:\"$verify_summary\"}))")"
+
     mark_task_done "$task_id"
-    git add packages/core tasks/tasks.json tasks/progress.md || true
-    git commit -m "bot: $task_title" >/dev/null || true
-    log "task marked done: $task_id"
+    if [ "$changed" -eq 1 ]; then
+      git add packages/core tasks/tasks.json tasks/progress.md "$FEEDBACK_LOG" "$TASK_STATE_FILE" || true
+      git commit -m "bot: $task_title" >/dev/null || true
+      log "task marked done with code changes: $task_id"
+    else
+      git add tasks/tasks.json tasks/progress.md "$FEEDBACK_LOG" "$TASK_STATE_FILE" || true
+      git commit -m "bot: $task_title (already satisfied)" >/dev/null || true
+      log "task marked done without code diff after verify: $task_id"
+    fi
   else
     log "verify: FAIL"
-    log "last error (tail):"
-    tail -n 20 "$errlog" | sed 's/^/  /' | tee -a tasks/progress.md >/dev/null
+    log "verify summary: $verify_summary"
 
-    # 失敗回数カウント（雑にprogress.mdで持つ）
-    fails="$(grep -c '^.*verify: FAIL' tasks/progress.md || true)"
-    if [ "$fails" -ge "$MAX_FAILS" ]; then
-      log "Too many failures ($fails >= $MAX_FAILS). Stop."
+    fail_streak="$(get_task_fail_streak "$task_id")"
+    fail_streak="$((fail_streak + 1))"
+    set_task_fail_streak "$task_id" "$fail_streak"
+    append_feedback_event "$(node -e "console.log(JSON.stringify({ts:new Date().toISOString(),taskId:'$task_id',loop:$i,type:'verify_fail',changed:$changed,failStreak:$fail_streak,hint:\"$verify_summary\"}))")"
+
+    if [ "$fail_streak" -ge "$MAX_FAILS" ]; then
+      log "Too many consecutive failures for task ($fail_streak >= $MAX_FAILS). Stop."
       exit 1
     fi
 
-    # 失敗時はコミットせずにリセット（次ループでやり直し）
-    git reset --hard >/dev/null
+    if [ "$changed" -eq 1 ]; then
+      git reset --hard >/dev/null
+      log "changes reset after verify failure"
+    else
+      log "no-diff + verify fail: keep task open for retry with feedback context"
+    fi
   fi
 done
 
