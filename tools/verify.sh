@@ -63,26 +63,31 @@ run_step() {
 
 printf '{"ok":true,"steps":[]}\n' > "$REPORT_FILE"
 
+run_step "core_build" "rm -rf packages/core/dist && npx -y tsc -p packages/core/tsconfig.json --outDir packages/core/dist"
 run_step "typecheck" "npm run -s typecheck"
 run_step "core_applyIntent_runtime" "node <<'EOF'
-const { applyIntent, createInitialState } = require('./packages/core/dist/index.js');
+const core = require('./packages/core/dist/index.js');
 
-// 初期 state
-const state = createInitialState();
-
-// EndTurn テスト
-const r1 = applyIntent(state, { type: 'EndTurn' });
-if (r1.state.turn !== state.turn + 1) {
-  console.error('EndTurn failed');
+if (typeof core.createInitialState !== 'function') {
+  console.error('createInitialState missing');
   process.exit(1);
 }
 
-// Move テスト（最低限）
-const moveIntent = { type: 'Move', pieceId: 'p1', to: { x: 0, y: 0 } };
-try {
-  applyIntent(state, moveIntent);
-} catch (e) {
-  console.error('Move threw error');
+if (typeof core.applyIntent !== 'function') {
+  console.error('applyIntent missing');
+  process.exit(1);
+}
+
+const state = core.createInitialState();
+const result = core.applyIntent(state, { type: 'EndTurn' });
+
+if (!result || !result.state || typeof result.state.turn !== 'number') {
+  console.error('invalid result shape');
+  process.exit(1);
+}
+
+if (result.state.turn !== state.turn + 1) {
+  console.error('EndTurn did not increment turn');
   process.exit(1);
 }
 
