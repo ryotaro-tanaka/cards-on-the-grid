@@ -43,7 +43,7 @@
     {
       "id": "T009",
       "title": "Add a tiny unit test (or script) that runs applyIntent for Move and EndTurn and asserts resulting state/events. Keep it minimal; no new frameworks.",
-      "done": false
+      "done": true
     }
   ]
 }
