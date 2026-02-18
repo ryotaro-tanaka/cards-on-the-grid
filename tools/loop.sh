@@ -156,6 +156,7 @@ run_aider_once() {
     --no-show-model-warnings \
     packages/core/src/index.ts \
     packages/core/src/types.ts \
+    packages/core/src/applyIntent.ts \
     --message "
 You are the implementation agent for this repository.
 

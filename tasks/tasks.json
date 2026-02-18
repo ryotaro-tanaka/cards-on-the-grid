@@ -33,7 +33,7 @@
     {
       "id": "T007",
       "title": "Add applyIntent(state, intent) function in packages/core/src/applyIntent.ts that returns { state, events }. Implement EndTurn and Move only.",
-      "done": true
+      "done": false
     },
     {
       "id": "T008",
