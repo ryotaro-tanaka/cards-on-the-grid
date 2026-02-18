@@ -5,8 +5,7 @@ export function applyIntent(
   intent: Intent,
 ): { state: GameState; events: Event[] } {
   if (intent.type === 'EndTurn') {
-    const nextOwner =
-      state.activePlayer === state.players[0] ? state.players[1] : state.players[0];
+    const nextOwner = state.activePlayer === 'p1' ? 'p2' : 'p1';
     const nextTurnNo = state.turn + 1;
 
     return {

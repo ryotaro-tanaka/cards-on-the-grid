@@ -53,7 +53,7 @@
     {
       "id": "T011",
       "title": "Enhance applyIntent: when handling EndTurn, increment turn and switch activePlayer (p1 <-> p2). Emit a TurnEnded event with nextTurn info.",
-      "done": false
+      "done": true
     },
     {
       "id": "T012",
