@@ -64,6 +64,30 @@ run_step() {
 printf '{"ok":true,"steps":[]}\n' > "$REPORT_FILE"
 
 run_step "typecheck" "npm run -s typecheck"
+run_step "core_applyIntent_runtime" "node <<'EOF'
+const { applyIntent, createInitialState } = require('./packages/core/dist/index.js');
+
+// 初期 state
+const state = createInitialState();
+
+// EndTurn テスト
+const r1 = applyIntent(state, { type: 'EndTurn' });
+if (r1.state.turn !== state.turn + 1) {
+  console.error('EndTurn failed');
+  process.exit(1);
+}
+
+// Move テスト（最低限）
+const moveIntent = { type: 'Move', pieceId: 'p1', to: { x: 0, y: 0 } };
+try {
+  applyIntent(state, moveIntent);
+} catch (e) {
+  console.error('Move threw error');
+  process.exit(1);
+}
+
+process.exit(0);
+EOF"
 run_step "core_applyIntent_exists" "node -e \"require('./packages/core/dist/index.js')\""
 run_step "core_applyIntent_exists" "test -f packages/core/src/applyIntent.ts"
 
