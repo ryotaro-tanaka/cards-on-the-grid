@@ -45,11 +45,10 @@
       "title": "Add a tiny unit test (or script) that runs applyIntent for Move and EndTurn and asserts resulting state/events. Keep it minimal; no new frameworks.",
       "done": true
     },
-
     {
       "id": "T010",
       "title": "Fix discriminated unions in packages/core/src/types.ts: add explicit `type` field to EndTurn, Move, TurnEnded, PieceMoved. Remove any `as Event[]` casts in applyIntent.",
-      "done": false
+      "done": true
     },
     {
       "id": "T011",
