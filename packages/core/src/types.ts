@@ -1,5 +1,4 @@
 export type PlayerId = string;
-
 export type PieceId = string;
 
 export type Coord = { x: number; y: number };
@@ -27,7 +26,13 @@ export type Move = {
 
 export type Intent = EndTurn | Move;
 
-export type TurnEnded = { type: 'TurnEnded' };
+export type TurnEnded = {
+  type: 'TurnEnded';
+  nextTurn: {
+    owner: PlayerId;
+    turnNo: number;
+  };
+};
 
 export type PieceMoved = {
   type: 'PieceMoved';
