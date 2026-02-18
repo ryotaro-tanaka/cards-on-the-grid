@@ -44,6 +44,22 @@
       "id": "T009",
       "title": "Add a tiny unit test (or script) that runs applyIntent for Move and EndTurn and asserts resulting state/events. Keep it minimal; no new frameworks.",
       "done": true
+    },
+
+    {
+      "id": "T010",
+      "title": "Fix discriminated unions in packages/core/src/types.ts: add explicit `type` field to EndTurn, Move, TurnEnded, PieceMoved. Remove any `as Event[]` casts in applyIntent.",
+      "done": false
+    },
+    {
+      "id": "T011",
+      "title": "Enhance applyIntent: when handling EndTurn, increment turn and switch activePlayer (p1 <-> p2). Emit a TurnEnded event with nextTurn info.",
+      "done": false
+    },
+    {
+      "id": "T012",
+      "title": "Strengthen runtime verification: add Move test to verify piece position changes and PieceMoved.from equals previous position.",
+      "done": false
     }
   ]
 }
