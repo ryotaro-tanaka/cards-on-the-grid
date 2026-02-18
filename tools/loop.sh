@@ -142,9 +142,31 @@ for (const s of failed) {
 NODE
 }
 
-append_feedback_event() {
-  local payload="$1"
-  printf "%s\n" "$payload" >> "$FEEDBACK_LOG"
+append_feedback_event_json() {
+  local task_id="$1"
+  local loop="$2"
+  local type="$3"
+  local changed="$4"
+  local fail_streak="${5:-}"
+  local hint="$6"
+
+  TASK_ID="$task_id" LOOP="$loop" TYPE="$type" CHANGED="$changed" FAIL_STREAK="${fail_streak:-}" HINT="$hint" \
+    node - <<'NODE' >> "$FEEDBACK_LOG"
+const payload = {
+  ts: new Date().toISOString(),
+  taskId: process.env.TASK_ID,
+  loop: Number(process.env.LOOP),
+  type: process.env.TYPE,
+  changed: Number(process.env.CHANGED),
+  hint: process.env.HINT || '',
+};
+
+if (process.env.FAIL_STREAK && process.env.FAIL_STREAK.length) {
+  payload.failStreak = Number(process.env.FAIL_STREAK);
+}
+
+process.stdout.write(JSON.stringify(payload) + "\n");
+NODE
 }
 
 run_aider_once() {
@@ -256,7 +278,7 @@ for i in $(seq 1 "$MAX_LOOPS"); do
   if [ $verify_rc -eq 0 ]; then
     log "verify: OK"
     set_task_fail_streak "$task_id" 0
-    append_feedback_event "$(node -e "console.log(JSON.stringify({ts:new Date().toISOString(),taskId:'$task_id',loop:$i,type:'verify_ok',changed:$changed,hint:\"$verify_summary\"}))")"
+    append_feedback_event_json "$task_id" "$i" "verify_ok" "$changed" "" "$verify_summary"
 
     mark_task_done "$task_id"
     if [ "$changed" -eq 1 ]; then
@@ -275,7 +297,7 @@ for i in $(seq 1 "$MAX_LOOPS"); do
     fail_streak="$(get_task_fail_streak "$task_id")"
     fail_streak="$((fail_streak + 1))"
     set_task_fail_streak "$task_id" "$fail_streak"
-    append_feedback_event "$(node -e "console.log(JSON.stringify({ts:new Date().toISOString(),taskId:'$task_id',loop:$i,type:'verify_fail',changed:$changed,failStreak:$fail_streak,hint:\"$verify_summary\"}))")"
+    append_feedback_event_json "$task_id" "$i" "verify_fail" "$changed" "$fail_streak" "$verify_summary"
 
     if [ "$fail_streak" -ge "$MAX_FAILS" ]; then
       log "Too many consecutive failures for task ($fail_streak >= $MAX_FAILS). Stop."
