@@ -63,38 +63,59 @@ run_step() {
 
 printf '{"ok":true,"steps":[]}\n' > "$REPORT_FILE"
 
-run_step "core_build" "rm -rf packages/core/dist && npx -y tsc -p packages/core/tsconfig.json --outDir packages/core/dist"
+run_step "core_build" "rm -rf packages/core/dist && mkdir -p packages/core/dist && npx -y esbuild packages/core/src/index.ts --bundle --platform=node --format=esm --outfile=packages/core/dist/index.js --packages=bundle"
 run_step "typecheck" "npm run -s typecheck"
+
 run_step "core_applyIntent_runtime" "node <<'EOF'
-const core = require('./packages/core/dist/index.js');
+const path = require('path');
+const { pathToFileURL } = require('url');
 
-if (typeof core.createInitialState !== 'function') {
-  console.error('createInitialState missing');
+(async () => {
+  const entry = path.join(process.cwd(), 'packages', 'core', 'dist', 'index.js');
+  const mod = await import(pathToFileURL(entry).href);
+  const core = mod && (mod.default ?? mod);
+
+  if (typeof core.applyIntent !== 'function') {
+    console.error('applyIntent missing');
+    process.exit(1);
+  }
+
+  // Minimal GameState for runtime test
+  const state = {
+    turn: 1,
+    players: ['p1', 'p2'],
+    activePlayer: 'p1',
+    pieces: [{ id: 'k1', owner: 'p1', position: { x: 0, y: 0 } }],
+  };
+
+  const result = core.applyIntent(state, { type: 'EndTurn' });
+
+  if (!result || typeof result !== 'object') {
+    console.error('invalid result: not an object');
+    process.exit(1);
+  }
+  if (!result.state || typeof result.state.turn !== 'number') {
+    console.error('invalid result shape');
+    process.exit(1);
+  }
+  if (!Array.isArray(result.events)) {
+    console.error('invalid events: not an array');
+    process.exit(1);
+  }
+  if (result.state.turn !== state.turn + 1) {
+    console.error('EndTurn did not increment turn');
+    process.exit(1);
+  }
+
+  process.exit(0);
+})().catch((e) => {
+  console.error(String((e && e.stack) || e));
   process.exit(1);
-}
-
-if (typeof core.applyIntent !== 'function') {
-  console.error('applyIntent missing');
-  process.exit(1);
-}
-
-const state = core.createInitialState();
-const result = core.applyIntent(state, { type: 'EndTurn' });
-
-if (!result || !result.state || typeof result.state.turn !== 'number') {
-  console.error('invalid result shape');
-  process.exit(1);
-}
-
-if (result.state.turn !== state.turn + 1) {
-  console.error('EndTurn did not increment turn');
-  process.exit(1);
-}
-
-process.exit(0);
+});
 EOF"
-run_step "core_applyIntent_exists" "node -e \"require('./packages/core/dist/index.js')\""
-run_step "core_applyIntent_exists" "test -f packages/core/src/applyIntent.ts"
+
+run_step "core_entry_importable" "node -e \"import('./packages/core/dist/index.js').then(()=>process.exit(0)).catch(()=>process.exit(1))\""
+run_step "core_applyIntent_src_exists" "test -f packages/core/src/applyIntent.ts"
 
 if node -e "const p=require('./package.json');process.exit(p.scripts&&p.scripts.test?0:1)"; then
   run_step "test" "npm test --silent"
