@@ -194,9 +194,19 @@ STRICT CONSTRAINTS:
 - Output ONLY unified diff format.
 - Do NOT use SEARCH/REPLACE blocks.
 - If the task is already satisfied, output nothing (no-op).
+- applyIntent is defined in ./applyIntent.ts.
+- NEVER import applyIntent from './types'.
+- In index.ts you MUST write exactly:
+  export { applyIntent } from './applyIntent';
+- Do NOT modify existing type imports from './types'.
 
 Current task:
 [$task_id] $task_title
+
+IMPORTANT:
+applyIntent is NOT in types.ts.
+It must be re-exported from index.ts using:
+export { applyIntent } from './applyIntent';
 
 Recent verification errors (if any):
 $( [ -f "$errlog" ] && tail -n 40 "$errlog" || echo "(none)" )
