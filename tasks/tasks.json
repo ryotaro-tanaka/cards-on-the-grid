@@ -38,7 +38,7 @@
     {
       "id": "T008",
       "title": "Export applyIntent from packages/core/src/index.ts. applyIntent is in ./applyIntent.ts (not ./types). Use: export { applyIntent } from './applyIntent'.",
-      "done": false
+      "done": true
     },
     {
       "id": "T009",
