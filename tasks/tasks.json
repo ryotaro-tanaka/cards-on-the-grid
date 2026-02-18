@@ -58,7 +58,7 @@
     {
       "id": "T012",
       "title": "Strengthen runtime verification: add Move test to verify piece position changes and PieceMoved.from equals previous position.",
-      "done": false
+      "done": true
     }
   ]
 }
