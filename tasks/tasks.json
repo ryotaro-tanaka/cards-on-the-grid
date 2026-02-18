@@ -33,7 +33,7 @@
     {
       "id": "T007",
       "title": "Add applyIntent(state, intent) function in packages/core/src/applyIntent.ts that returns { state, events }. Implement EndTurn and Move only. applyIntent.ts is in the same folder as types.ts. Import types from ./types",
-      "done": true
+      "done": false
     },
     {
       "id": "T008",

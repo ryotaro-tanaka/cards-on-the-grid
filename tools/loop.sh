@@ -50,6 +50,10 @@ changed_lines_count() {
   git diff --numstat | awk '{add+=$1; del+=$2} END{print add+del+0}'
 }
 
+has_changes() {
+  ! git diff --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]
+}
+
 has_protected_changes() {
   git diff --name-only | grep -E "$PROTECTED_REGEX" >/dev/null 2>&1
 }
@@ -223,20 +227,22 @@ for i in $(seq 1 "$MAX_LOOPS"); do
   fi
 
   changed=0
-  if ! git diff --quiet; then
+  if has_changes; then
     changed=1
     changed_lines="$(changed_lines_count)"
     log "changed lines(add+del): $changed_lines"
+
     if [ "$changed_lines" -gt "$MAX_CHANGED_LINES" ]; then
       log "Too many changes ($changed_lines > $MAX_CHANGED_LINES). Stop."
       exit 1
     fi
+
     if has_protected_changes; then
       log "Protected files changed. Stop."
       exit 1
     fi
   else
-    log "No diff produced by aider. Run verify before deciding task state."
+    log "No changes detected (including untracked). Run verify before deciding task state."
   fi
 
   : > "$errlog"
