@@ -64,6 +64,7 @@ run_step() {
 printf '{"ok":true,"steps":[]}\n' > "$REPORT_FILE"
 
 run_step "typecheck" "npm run -s typecheck"
+run_step "core_applyIntent_exists" "node -e \"require('./packages/core/dist/index.js')\""
 run_step "core_applyIntent_exists" "test -f packages/core/src/applyIntent.ts"
 
 if node -e "const p=require('./package.json');process.exit(p.scripts&&p.scripts.test?0:1)"; then
