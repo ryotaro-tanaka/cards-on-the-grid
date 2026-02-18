@@ -157,26 +157,30 @@ run_aider_once() {
     packages/core/src/index.ts \
     packages/core/src/types.ts \
     --message "
-  あなたはこのリポジトリの実装エージェントです。
+You are the implementation agent for this repository.
 
-  絶対制約:
-  - tsconfig.json / packages/**/tsconfig.json は編集禁止（提案も禁止）。
-  - README.md と note/ 配下は編集禁止。
-  - 変更は最小差分。既存内容の削除は禁止。
-  - 今回のタスク以外は触らない。
+STRICT CONSTRAINTS:
+- Do NOT edit tsconfig.json or any packages/**/tsconfig.json (no suggestions either).
+- Do NOT edit README.md or anything under note/.
+- Keep changes minimal. Do NOT delete existing logic unless strictly necessary.
+- Do NOT modify anything unrelated to the current task.
+- Output ONLY unified diff format.
+- Do NOT use SEARCH/REPLACE blocks.
+- If the task is already satisfied, output nothing (no-op).
 
-  タスク: [$task_id] $task_title
+Current task:
+[$task_id] $task_title
 
-  直近の検証エラー（あれば）:
-  $( [ -f "$errlog" ] && tail -n 40 "$errlog" || echo "(none)" )
+Recent verification errors (if any):
+$( [ -f "$errlog" ] && tail -n 40 "$errlog" || echo "(none)" )
 
-  過去の失敗から抽出したヒント:
-  $feedback_context
+Extracted hints from previous failures:
+$feedback_context
 
-  達成条件:
-  - tools/verify.sh が通ること
-  - 失敗ログに出ている同一エラーを繰り返さないこと
-  "
+Definition of done:
+- tools/verify.sh must pass.
+- Do not repeat the same error shown in the verification logs.
+"
 }
 
 ensure_clean_branch
@@ -249,11 +253,11 @@ for i in $(seq 1 "$MAX_LOOPS"); do
 
     mark_task_done "$task_id"
     if [ "$changed" -eq 1 ]; then
-      git add packages/core tasks/tasks.json tasks/progress.md "$FEEDBACK_LOG" "$TASK_STATE_FILE" || true
+      git add packages/core tasks/tasks.json "$FEEDBACK_LOG" "$TASK_STATE_FILE"
       git commit -m "bot: $task_title" >/dev/null || true
       log "task marked done with code changes: $task_id"
     else
-      git add tasks/tasks.json tasks/progress.md "$FEEDBACK_LOG" "$TASK_STATE_FILE" || true
+      git add tasks/tasks.json "$FEEDBACK_LOG" "$TASK_STATE_FILE"
       git commit -m "bot: $task_title (already satisfied)" >/dev/null || true
       log "task marked done without code diff after verify: $task_id"
     fi
