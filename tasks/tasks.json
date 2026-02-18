@@ -28,7 +28,7 @@
     {
       "id": "T006",
       "title": "Convert Event into a discriminated union in packages/core/src/types.ts: TurnEnded | PieceMoved. Keep it minimal.",
-      "done": false
+      "done": true
     },
     {
       "id": "T007",

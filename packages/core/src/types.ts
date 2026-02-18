@@ -17,6 +17,12 @@ export type Move = {
 
 export type Intent = EndTurn | Move;
 
-export type Event = {
-  // Define your event properties here
+export type TurnEnded = {};
+
+export type PieceMoved = {
+  pieceId: PieceId;
+  from: Coord;
+  to: Coord;
 };
+
+export type Event = TurnEnded | PieceMoved;
