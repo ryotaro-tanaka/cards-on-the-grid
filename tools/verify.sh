@@ -107,6 +107,36 @@ const { pathToFileURL } = require('url');
     process.exit(1);
   }
 
+  // Move test
+  const moveResult = core.applyIntent(state, { type: 'Move', pieceId: 'k1', to: { x: 1, y: 0 } });
+
+  if (!moveResult || typeof moveResult !== 'object') {
+    console.error('invalid result: not an object');
+    process.exit(1);
+  }
+  if (!moveResult.state || !Array.isArray(moveResult.state.pieces)) {
+    console.error('invalid result shape');
+    process.exit(1);
+  }
+  const movedPiece = moveResult.state.pieces.find(p => p.id === 'k1');
+  if (!movedPiece) {
+    console.error('piece not found after move');
+    process.exit(1);
+  }
+  if (movedPiece.position.x !== 1 || movedPiece.position.y !== 0) {
+    console.error('incorrect piece position after move');
+    process.exit(1);
+  }
+  const event = moveResult.events.find(e => e.type === 'PieceMoved' && e.pieceId === 'k1');
+  if (!event) {
+    console.error('PieceMoved event not found');
+    process.exit(1);
+  }
+  if (event.from.x !== 0 || event.from.y !== 0) {
+    console.error('incorrect PieceMoved.from position');
+    process.exit(1);
+  }
+
   process.exit(0);
 })().catch((e) => {
   console.error(String((e && e.stack) || e));
