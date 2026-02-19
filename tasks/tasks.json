@@ -73,7 +73,7 @@
     {
       "id": "T015",
       "title": "Add activePlayer validation in applyIntent: for Move, if the target piece.owner is not state.activePlayer, ignore (no state change, no events). EndTurn remains allowed.",
-      "done": false
+      "done": true
     },
     {
       "id": "T016",
