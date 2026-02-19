@@ -78,7 +78,7 @@
     {
       "id": "T016",
       "title": "Prepare core for WebSocket layer: add pure helper function reduceEvent(state, event) that applies Event to GameState. Do not modify server yet.",
-      "done": false
+      "done": true
     }
   ]
 }
