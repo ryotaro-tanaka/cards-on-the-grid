@@ -5,6 +5,9 @@
   "compatibility_date": "2026-02-19",
   "workers_dev": true,
 
+  // NOTE: This Worker does NOT use D1/SQLite database bindings.
+  // (There is intentionally no `d1_databases` section.)
+
   "durable_objects": {
     "bindings": [
       {
@@ -17,6 +20,8 @@
   "migrations": [
     {
       "tag": "v1",
+      // This is a Durable Object migration type required on free plans.
+      // It does NOT create/use a D1 SQL database.
       "new_sqlite_classes": ["RoomDO"]
     }
   ]
