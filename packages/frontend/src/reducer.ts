@@ -21,7 +21,8 @@ export type ClientState = {
 
 export type IncomingMessage =
   | { type: 'WELCOME'; payload: WelcomePayload }
-  | { type: 'EVENT'; payload: EventPayload };
+  | { type: 'EVENT'; payload: EventPayload }
+  | { type: 'SYNC'; payload: { seq: number; state: GameState } };
 
 export function createEmptyClientState(): ClientState {
   return {
@@ -40,6 +41,18 @@ export function reduceIncoming(
     return {
       roomId: message.payload.roomId,
       you: message.payload.you,
+      seq: message.payload.seq,
+      state: message.payload.state,
+    };
+  }
+
+  if (message.type === 'SYNC') {
+    if (!current.roomId || !current.you) {
+      return current;
+    }
+
+    return {
+      ...current,
       seq: message.payload.seq,
       state: message.payload.state,
     };

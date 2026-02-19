@@ -1,58 +1,122 @@
-# 現在地点と `core/` 集約方針レビュー
+# アーキテクチャレビュー（現状整理と次実装提案）
 
-## 現在地点（更新）
+## 1. 現在地（2026-02時点）
 
-- ルート `tsconfig.json` の project references で `core` / `backend` / `frontend` を分割。
-- `packages/core` は actor 付き command パイプラインを実装済み。
-  - `validateIntent`: 合法手判定
-  - `applyEvent`: イベント適用
-  - `applyCommand`: 検証 + イベント生成 + 状態更新
-- `packages/backend` は room state / `seq` / turn 検証を実装済み。
-  - `handleClientIntent` で `TURN_MISMATCH` と core 由来の validation reject を返す
-- `packages/frontend` は `WELCOME` / `EVENT` reducer を実装済み。
-  - `seq` が連番でない `EVENT` は適用しない
+### 1-1. すでに成立していること
 
-## API はできているか？
+現状は、**「2人ターン制ゲームの最小縦切り」**としては成立している。
 
-結論：**最小API（MVP向け）は実装済み**。
+- `core` がルールの単一責務を持つ
+  - command検証
+  - event生成
+  - event適用
+- `backend` が authoritative に順序と手番を管理
+  - `expectedTurn` と validation を検査
+  - `seq` 採番付きで `EVENT` を配信
+  - 不整合を `REJECT` で返却
+- `frontend` は read model として同期
+  - `WELCOME` 初期化
+  - `EVENT` の連番適用
+  - 欠損時は `RESYNC_REQUEST` → `SYNC` でスナップショット復旧
 
-- 実装場所
-  - `packages/backend/src/ws.ts`
-  - `packages/backend/src/room.ts`
-  - `packages/frontend/src/reducer.ts`
-- 仕様メモ
-  - `note/api.md`（プロトコルの叩き台）
+### 1-2. 実装済みの最小プロトコル
 
-### いま使える最小メッセージ
-
-- Server -> Client
-  - `WELCOME`
-  - `EVENT`
-  - `REJECT`
 - Client -> Server
-  - `INTENT`（`expectedTurn` + `command`）
+  - `INTENT { expectedTurn, command }`
+  - `RESYNC_REQUEST { fromSeq }`
+- Server -> Client
+  - `WELCOME { roomId, you, seq, state }`
+  - `EVENT { seq, event }`
+  - `REJECT { reason, expectedTurn }`
+  - `SYNC { seq, state }`
 
-## `core` 集約運用は妥当か
+### 1-3. 現状評価
 
-結論：**妥当**。
+結論：**MVP土台として妥当**。
 
-- backend/frontend でルール二重実装を避けられる
-- WebSocket イベントの適用ロジックを共有できる
-- authoritative server 構成を保ったまま、frontend は read model として同一ロジックを使える
+- 良い点
+  - ルールの二重実装を回避できる構造になっている
+  - 欠損復旧（SYNC）が入り、同期停止リスクが一段下がった
+  - e2e smoke で「正常系 + 拒否系 + 復旧系」を通せる
+- 残っている制約
+  - ゲーム仕様の大半（補充/ドロー/戦闘/カード効果）が未実装
+  - phase概念が未導入で、README仕様との差が大きい
+  - ルーム永続化・再起動耐性・観戦など運用面は未着手
 
-## 直近で埋めるべきギャップ
+---
 
-1. 仕様未確定項目の固定（召喚不可時、手札超過、地雷詳細など）
-2. 再接続同期（`SYNC`）とイベント欠損時の追いつき
-3. 乱数 seed 戦略（再現性テスト）
-4. ルール拡張（戦闘/死亡/補充/カード効果）
+## 2. README / note との整合見立て
 
-## 最小E2E動線（現状）
+- **整合している点**
+  - `note/IMPLEMENTATION_REVIEW.md` の推奨である「authoritative server + TS共有ロジック」に沿っている
+  - `note/api.md` の現行プロトコル説明と実装が一致している
+- **未整合（未実装）として明示すべき点**
+  - READMEのターン構造（補充/ドロー/メイン/エンド）
+  - Creature固有能力とカード群の大半
+  - 山札確率変動や地雷詳細など仕様未確定項目
 
-`scripts/e2e-smoke.mjs` で次を確認できる。
+※ つまり「設計方針は整合、機能網羅は未整合（意図的なMVP段階）」という状態。
 
-1. `WELCOME` を frontend reducer に適用
-2. `INTENT(EndTurn)` -> `EVENT(seq=1)` を受けて state 更新
-3. 古い turn で `INTENT` を送ると `REJECT(TURN_MISMATCH)`
-4. 手番外 actor で `INTENT` を送ると `REJECT(NOT_ACTIVE_PLAYER)`
+---
 
+## 3. 次に実装すべき内容（粒度大きめ）
+
+以下は、細かいチケット分割前の**大きな実装テーマ**。
+
+### テーマA: ルール実装の骨格を完成させる（最優先）
+
+目的：READMEのゲーム構造に追従できる状態へ進める。
+
+- `GameState` に phase を導入（Reinforce / Draw / Main / End）
+- command受理条件を phase で制約
+- `EndTurn` だけで進む暫定モデルを解消
+- reject理由を phase起因でも返せるように拡張
+
+期待効果：以降のカード・戦闘実装の前提が固まり、後戻りが減る。
+
+### テーマB: 戦闘・死亡・補充のイベント連鎖を実装する
+
+目的：盤面ゲームとして最低限の面白さを成立させる。
+
+- 移動時自動攻撃
+- ダメージ→死亡判定
+- `Successor cost` に基づく補充待ち/補充解決
+- 1 command で複数 event が発生する設計へ明示的に移行
+
+期待効果：ループの核（移動→戦闘→盤面変化）が成立する。
+
+### テーマC: 同期・運用の信頼性を1段上げる
+
+目的：実プレイで壊れにくい通信モデルにする。
+
+- SYNC運用の標準化（どの条件で要求するか）
+- room再生成/再起動を見据えた snapshot 保存方針
+- e2eを「意図的な欠損・遅延」ケースまで拡張
+
+期待効果：ローカル検証を超えて、実運用での復旧性が上がる。
+
+---
+
+## 4. 実装順の提案（大枠）
+
+### Step 1: テーマA（phase骨格）
+
+先に状態遷移の器を作る。ここが曖昧だと後続のカード実装がぶれる。
+
+### Step 2: テーマB（戦闘ループ成立）
+
+盤面変化が生まれる最小の戦闘系を入れる。カードは最小1種で良い。
+
+### Step 3: テーマC（同期/運用強化）
+
+実際の通信トラブルを想定した復旧動線を強化する。
+
+---
+
+## 5. 進め方の原則
+
+- ルールの真実源は常に `core`
+- `backend` は「順序・認可・配信」に責務を限定
+- `frontend` は `EVENT/SYNC` を最終確定として扱う
+- 仕様差分は README と `note/` に明示しながら進める
+- 各テーマ完了時に e2e smoke へ最低1ケース追加する
