@@ -73,7 +73,7 @@
     {
       "id": "T015",
       "title": "Add turn validation in applyIntent: ignore Move or EndTurn if intent is not from activePlayer. Emit no events in that case.",
-      "done": false
+      "done": true
     },
     {
       "id": "T016",
