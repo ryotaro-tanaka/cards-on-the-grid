@@ -68,7 +68,7 @@
     {
       "id": "T014",
       "title": "Implement createInitialState() in core that returns valid initial GameState with players ['p1','p2'], activePlayer 'p1', turn 1, and at least one piece per player.",
-      "done": false
+      "done": true
     },
     {
       "id": "T015",
