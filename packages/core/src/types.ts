@@ -26,6 +26,11 @@ export type Move = {
 
 export type Intent = EndTurn | Move;
 
+export type Command = {
+  actorPlayerId: PlayerId;
+  intent: Intent;
+};
+
 export type TurnEnded = {
   type: 'TurnEnded';
   nextTurn: {
@@ -42,3 +47,13 @@ export type PieceMoved = {
 };
 
 export type Event = TurnEnded | PieceMoved;
+
+export type InvalidReason =
+  | 'NOT_ACTIVE_PLAYER'
+  | 'PIECE_NOT_FOUND'
+  | 'PIECE_NOT_OWNED_BY_ACTOR'
+  | 'OUT_OF_BOUNDS';
+
+export type ValidationResult =
+  | { ok: true }
+  | { ok: false; reason: InvalidReason };

@@ -171,3 +171,16 @@ json
 - 参加/退出通知、REJECT、再同期（SYNC）は後回し
 - 落ちたら入り直して WELCOME で復帰
 - まず MOVE と END_TURN の2操作だけで縦切りする
+
+---
+
+## 実装状況メモ（現時点）
+
+- 実装ファイル
+  - backend: `packages/backend/src/ws.ts`, `packages/backend/src/room.ts`
+  - frontend: `packages/frontend/src/reducer.ts`
+- 追加済み
+  - `REJECT` メッセージ（reason + expectedTurn）
+- E2E確認
+  - `npm run e2e:smoke`
+  - WELCOME -> INTENT -> EVENT と、turn mismatch / handoff reject を確認
