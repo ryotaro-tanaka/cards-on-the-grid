@@ -63,7 +63,7 @@
     {
       "id": "T013",
       "title": "Unify Coord type to { x: number; y: number } across types.ts, applyIntent, and runtime verification. Remove tuple-based Coord.",
-      "done": false
+      "done": true
     },
     {
       "id": "T014",
