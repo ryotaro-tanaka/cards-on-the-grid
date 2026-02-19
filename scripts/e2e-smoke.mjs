@@ -3,6 +3,7 @@ import {
   openRoom,
   createWelcomeMessage,
   handleIntentMessage,
+  handleResyncRequestMessage,
 } from '../packages/backend/dist/index.js';
 import {
   createEmptyClientState,
@@ -67,5 +68,45 @@ const wrongActor = handleIntentMessage(room, {
 
 assert.equal(wrongActor.outbound[0].type, 'REJECT');
 assert.equal(wrongActor.outbound[0].payload.reason, 'NOT_ACTIVE_PLAYER');
+
+const clientWithGap = createEmptyClientState();
+let recovered = reduceIncoming(clientWithGap, welcome);
+
+// seq=1 のEVENTを意図的に落とす
+const accepted2 = handleIntentMessage(room, {
+  type: 'INTENT',
+  payload: {
+    expectedTurn: 2,
+    command: {
+      actorPlayerId: 'p2',
+      intent: { type: 'EndTurn' },
+    },
+  },
+});
+room = accepted2.room;
+
+assert.equal(accepted2.outbound[0].type, 'EVENT');
+assert.equal(accepted2.outbound[0].payload.seq, 2);
+
+// 欠損があるため適用されない
+recovered = reduceIncoming(recovered, accepted2.outbound[0]);
+assert.equal(recovered.seq, 0);
+assert.equal(recovered.state?.turn, 1);
+
+const sync = handleResyncRequestMessage(room, {
+  type: 'RESYNC_REQUEST',
+  payload: {
+    fromSeq: recovered.seq,
+  },
+});
+
+assert.equal(sync.outbound.length, 1);
+assert.equal(sync.outbound[0].type, 'SYNC');
+assert.equal(sync.outbound[0].payload.seq, room.seq);
+
+recovered = reduceIncoming(recovered, sync.outbound[0]);
+assert.equal(recovered.seq, 2);
+assert.equal(recovered.state?.turn, 3);
+assert.equal(recovered.state?.activePlayer, 'p1');
 
 console.log('e2e-smoke: ok');

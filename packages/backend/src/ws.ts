@@ -16,7 +16,14 @@ export type IntentMessage = {
   };
 };
 
-export type ClientMessage = HelloMessage | IntentMessage;
+export type ResyncRequestMessage = {
+  type: 'RESYNC_REQUEST';
+  payload: {
+    fromSeq: number;
+  };
+};
+
+export type ClientMessage = HelloMessage | IntentMessage | ResyncRequestMessage;
 
 export type WelcomeMessage = {
   type: 'WELCOME';
@@ -44,7 +51,15 @@ export type RejectMessage = {
   };
 };
 
-export type ServerMessage = WelcomeMessage | EventMessage | RejectMessage;
+export type SyncMessage = {
+  type: 'SYNC';
+  payload: {
+    seq: number;
+    state: GameState;
+  };
+};
+
+export type ServerMessage = WelcomeMessage | EventMessage | RejectMessage | SyncMessage;
 
 export function openRoom(roomId: string): RoomState {
   return createRoomState(roomId);
@@ -95,5 +110,27 @@ export function handleIntentMessage(
         event: item.event,
       },
     })),
+  };
+}
+
+export function handleResyncRequestMessage(
+  room: RoomState,
+  message: ResyncRequestMessage,
+): { room: RoomState; outbound: ServerMessage[] } {
+  if (message.payload.fromSeq === room.seq) {
+    return { room, outbound: [] };
+  }
+
+  return {
+    room,
+    outbound: [
+      {
+        type: 'SYNC',
+        payload: {
+          seq: room.seq,
+          state: room.game,
+        },
+      },
+    ],
   };
 }
