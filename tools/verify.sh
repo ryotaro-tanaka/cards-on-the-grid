@@ -85,7 +85,10 @@ const { pathToFileURL } = require('url');
     turn: 1,
     players: ['p1', 'p2'],
     activePlayer: 'p1',
-    pieces: [{ id: 'k1', owner: 'p1', position: { x: 0, y: 0 } }],
+    pieces: [
+      { id: 'k1', owner: 'p1', position: { x: 0, y: 0 } },
+      { id: 'k2', owner: 'p2', position: { x: 6, y: 6 } },
+    ],
   };
 
   const result = core.applyIntent(state, { type: 'EndTurn' });
@@ -134,6 +137,26 @@ const { pathToFileURL } = require('url');
   }
   if (event.from.x !== 0 || event.from.y !== 0) {
     console.error('incorrect PieceMoved.from position');
+    process.exit(1);
+  }
+
+  // T015: moving non-active player's piece must be ignored (no-op)
+  const wrongMove = core.applyIntent(state, { type: 'Move', pieceId: 'k2', to: { x: 5, y: 6 } });
+  if (!wrongMove || typeof wrongMove !== 'object') {
+    console.error('invalid wrongMove result');
+    process.exit(1);
+  }
+  if (wrongMove.events.length !== 0) {
+    console.error('wrongMove should emit no events');
+    process.exit(1);
+  }
+  const k2 = wrongMove.state.pieces.find(p => p.id === 'k2');
+  if (!k2) {
+    console.error('k2 missing after wrongMove');
+    process.exit(1);
+  }
+  if (k2.position.x !== 6 || k2.position.y !== 6) {
+    console.error('wrongMove should not change k2 position');
     process.exit(1);
   }
 

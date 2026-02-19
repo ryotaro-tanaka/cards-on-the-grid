@@ -72,8 +72,8 @@
     },
     {
       "id": "T015",
-      "title": "Add turn validation in applyIntent: ignore Move or EndTurn if intent is not from activePlayer. Emit no events in that case.",
-      "done": true
+      "title": "Add activePlayer validation in applyIntent: for Move, if the target piece.owner is not state.activePlayer, ignore (no state change, no events). EndTurn remains allowed.",
+      "done": false
     },
     {
       "id": "T016",

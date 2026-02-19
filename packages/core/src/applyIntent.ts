@@ -18,6 +18,7 @@ export function applyIntent(
   const { pieceId, to } = intent;
   const piece = state.pieces.find((p) => p.id === pieceId);
   if (!piece) return { state, events: [] };
+  if (piece.owner !== state.activePlayer) return { state, events: [] };
 
   const nextPieces = state.pieces.map((p) =>
     p.id === pieceId ? { ...p, position: to } : p,
