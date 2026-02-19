@@ -6,7 +6,8 @@
   ],
   "scripts": {
     "typecheck": "tsc -b",
-    "clean": "rm -rf packages/*/dist"
+    "clean": "rm -rf packages/*/dist",
+    "e2e:smoke": "npm run typecheck && node --experimental-specifier-resolution=node scripts/e2e-smoke.mjs"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

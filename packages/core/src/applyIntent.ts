@@ -1,30 +1,17 @@
-import type { GameState, Intent, Event } from './types';
+import { applyCommand } from './applyCommand.js';
+import type { GameState, Intent, Event } from './types.js';
 
 export function applyIntent(
   state: GameState,
   intent: Intent,
 ): { state: GameState; events: Event[] } {
-  if (intent.type === 'EndTurn') {
-    const nextOwner = state.activePlayer === 'p1' ? 'p2' : 'p1';
-    const nextTurnNo = state.turn + 1;
-
-    return {
-      state: { ...state, turn: nextTurnNo, activePlayer: nextOwner },
-      events: [{ type: 'TurnEnded', nextTurn: { owner: nextOwner, turnNo: nextTurnNo } }],
-    };
-  }
-
-  // intent.type === 'Move'
-  const { pieceId, to } = intent;
-  const piece = state.pieces.find((p) => p.id === pieceId);
-  if (!piece || piece.owner !== state.activePlayer) return { state, events: [] };
-
-  const nextPieces = state.pieces.map((p) =>
-    p.id === pieceId ? { ...p, position: to } : p,
-  );
+  const result = applyCommand(state, {
+    actorPlayerId: state.activePlayer,
+    intent,
+  });
 
   return {
-    state: { ...state, pieces: nextPieces },
-    events: [{ type: 'PieceMoved', pieceId, from: piece.position, to }],
+    state: result.state,
+    events: result.events,
   };
 }
