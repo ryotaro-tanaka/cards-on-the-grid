@@ -59,6 +59,26 @@
       "id": "T012",
       "title": "Strengthen runtime verification: add Move test to verify piece position changes and PieceMoved.from equals previous position.",
       "done": true
+    },
+    {
+      "id": "T013",
+      "title": "Unify Coord type to { x: number; y: number } across types.ts, applyIntent, and runtime verification. Remove tuple-based Coord.",
+      "done": false
+    },
+    {
+      "id": "T014",
+      "title": "Implement createInitialState() in core that returns valid initial GameState with players ['p1','p2'], activePlayer 'p1', turn 1, and at least one piece per player.",
+      "done": false
+    },
+    {
+      "id": "T015",
+      "title": "Add turn validation in applyIntent: ignore Move or EndTurn if intent is not from activePlayer. Emit no events in that case.",
+      "done": false
+    },
+    {
+      "id": "T016",
+      "title": "Prepare core for WebSocket layer: add pure helper function reduceEvent(state, event) that applies Event to GameState. Do not modify server yet.",
+      "done": false
     }
   ]
 }
