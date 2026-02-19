@@ -14,6 +14,11 @@ packages/*/dist/
 .env
 .env.*
 
-# Loop state (local only)
+# Loop runtime logs (local only)
+tasks/last_error.log
 tasks/loop_state.json
 tasks/progress.md
+tasks/run.log
+tasks/verify_report.json
+tasks/.verify_*.out
+tasks/.verify_*.err

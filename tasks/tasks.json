@@ -2,13 +2,83 @@
   "tasks": [
     {
       "id": "T001",
-      "title": "Define core types: GameState, Intent, Event",
-      "done": false
+      "title": "Add core type declarations (GameState, Intent, Event) in packages/core/src/types.ts.",
+      "done": true
     },
     {
       "id": "T002",
-      "title": "Implement applyIntent(state, intent) -> {state, events} for MOVE and END_TURN (no rules yet)",
-      "done": false
+      "title": "Re-export core types from packages/core/src/index.ts.",
+      "done": true
+    },
+    {
+      "id": "T003",
+      "title": "Define minimal domain types in packages/core/src/types.ts: PlayerId, Coord, PieceId.",
+      "done": true
+    },
+    {
+      "id": "T004",
+      "title": "Expand GameState in packages/core/src/types.ts to include: players (2), activePlayer, and a board snapshot (pieces with coord + owner).",
+      "done": true
+    },
+    {
+      "id": "T005",
+      "title": "Convert Intent into a discriminated union in packages/core/src/types.ts: EndTurn | Move (pieceId, to). Keep it minimal.",
+      "done": true
+    },
+    {
+      "id": "T006",
+      "title": "Convert Event into a discriminated union in packages/core/src/types.ts: TurnEnded | PieceMoved. Keep it minimal.",
+      "done": true
+    },
+    {
+      "id": "T007",
+      "title": "Add applyIntent(state, intent) function in packages/core/src/applyIntent.ts that returns { state, events }. Implement EndTurn and Move only. applyIntent.ts is in the same folder as types.ts. Import types from ./types",
+      "done": true
+    },
+    {
+      "id": "T008",
+      "title": "Export applyIntent from packages/core/src/index.ts. applyIntent is in ./applyIntent.ts (not ./types). Use: export { applyIntent } from './applyIntent'.",
+      "done": true
+    },
+    {
+      "id": "T009",
+      "title": "Add a tiny unit test (or script) that runs applyIntent for Move and EndTurn and asserts resulting state/events. Keep it minimal; no new frameworks.",
+      "done": true
+    },
+    {
+      "id": "T010",
+      "title": "Fix discriminated unions in packages/core/src/types.ts: add explicit `type` field to EndTurn, Move, TurnEnded, PieceMoved. Remove any `as Event[]` casts in applyIntent.",
+      "done": true
+    },
+    {
+      "id": "T011",
+      "title": "Enhance applyIntent: when handling EndTurn, increment turn and switch activePlayer (p1 <-> p2). Emit a TurnEnded event with nextTurn info.",
+      "done": true
+    },
+    {
+      "id": "T012",
+      "title": "Strengthen runtime verification: add Move test to verify piece position changes and PieceMoved.from equals previous position.",
+      "done": true
+    },
+    {
+      "id": "T013",
+      "title": "Unify Coord type to { x: number; y: number } across types.ts, applyIntent, and runtime verification. Remove tuple-based Coord.",
+      "done": true
+    },
+    {
+      "id": "T014",
+      "title": "Implement createInitialState() in core that returns valid initial GameState with players ['p1','p2'], activePlayer 'p1', turn 1, and at least one piece per player.",
+      "done": true
+    },
+    {
+      "id": "T015",
+      "title": "Add activePlayer validation in applyIntent: for Move, if the target piece.owner is not state.activePlayer, ignore (no state change, no events). EndTurn remains allowed.",
+      "done": true
+    },
+    {
+      "id": "T016",
+      "title": "Prepare core for WebSocket layer: add pure helper function reduceEvent(state, event) that applies Event to GameState. Do not modify server yet.",
+      "done": true
     }
   ]
 }
