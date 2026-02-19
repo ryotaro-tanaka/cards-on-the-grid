@@ -150,6 +150,7 @@ const { pathToFileURL } = require('url');
     console.error('wrongMove should emit no events');
     process.exit(1);
   }
+
   const k2 = wrongMove.state.pieces.find(p => p.id === 'k2');
   if (!k2) {
     console.error('k2 missing after wrongMove');
@@ -157,6 +158,16 @@ const { pathToFileURL } = require('url');
   }
   if (k2.position.x !== 6 || k2.position.y !== 6) {
     console.error('wrongMove should not change k2 position');
+    process.exit(1);
+  }
+
+  const k1AfterWrong = wrongMove.state.pieces.find(p => p.id === 'k1');
+  if (!k1AfterWrong) {
+    console.error('k1 missing after wrongMove');
+    process.exit(1);
+  }
+  if (k1AfterWrong.position.x !== 0 || k1AfterWrong.position.y !== 0) {
+    console.error('wrongMove should not change other pieces');
     process.exit(1);
   }
 
