@@ -17,9 +17,15 @@ export function applyEvent(state: GameState, event: Event): GameState {
     const nextPieces = state.pieces.map((piece) =>
       piece.id === event.pieceId ? { ...piece, position: event.to } : piece,
     );
+    const movedPieceIds = state.turnState.movedPieceIds.includes(event.pieceId)
+      ? state.turnState.movedPieceIds
+      : [...state.turnState.movedPieceIds, event.pieceId];
 
     return {
       ...state,
+      turnState: {
+        movedPieceIds,
+      },
       pieces: nextPieces,
     };
   }

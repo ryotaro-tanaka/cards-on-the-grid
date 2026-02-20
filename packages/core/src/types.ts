@@ -94,7 +94,13 @@ export type InvalidReason =
   | 'NOT_ACTIVE_PLAYER'
   | 'PIECE_NOT_FOUND'
   | 'PIECE_NOT_OWNED_BY_ACTOR'
-  | 'OUT_OF_BOUNDS';
+  | 'OUT_OF_BOUNDS'
+  | 'GAME_ALREADY_FINISHED'
+  | 'PHASE_MISMATCH'
+  | 'INVALID_MOVE_DISTANCE'
+  | 'SAME_POSITION'
+  | 'CELL_OCCUPIED'
+  | 'MOVE_ALREADY_USED_THIS_TURN';
 
 export type ValidationResult =
   | { ok: true }
