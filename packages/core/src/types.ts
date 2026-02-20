@@ -69,7 +69,26 @@ export type PieceMoved = {
   to: Coord;
 };
 
-export type Event = TurnEnded | PieceMoved;
+export type CombatResolved = {
+  type: 'CombatResolved';
+  attackerPieceId: PieceId;
+  defenderPieceId: PieceId;
+  damage: number;
+  defenderHpAfter: number;
+  defenderDefeated: boolean;
+};
+
+export type SuccessorSpawned = {
+  type: 'SuccessorSpawned';
+  piece: Piece;
+};
+
+export type GameFinished = {
+  type: 'GameFinished';
+  winner: PlayerId;
+};
+
+export type Event = TurnEnded | PieceMoved | CombatResolved | SuccessorSpawned | GameFinished;
 
 export type InvalidReason =
   | 'NOT_ACTIVE_PLAYER'

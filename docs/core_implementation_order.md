@@ -33,13 +33,15 @@
 
 次に `Event` を増やし、「状態変化を全部イベントで表現」できるようにする。
 
-- 既存: `PieceMoved`, `TurnEnded`
-- 追加候補:
-  - `CombatResolved`（攻撃結果）
-  - `CreatureDamaged`
-  - `CreatureDefeated`
-  - `SuccessorSpawned`
-  - `GameFinished`
+次ステップ（イベントスキーマ）では次の最小セットが良いです。
+
+- `PieceMoved`（既存）
+- `TurnEnded`（既存）
+- `CombatResolved`（新規）
+- `SuccessorSpawned`（新規）
+- `GameFinished`（新規）
+
+これで「必要十分」になり、API往復は増えません。
 
 実装順序としては「まずイベント型定義 → 次に `applyEvent` 対応」が安全。
 
