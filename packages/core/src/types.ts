@@ -3,16 +3,39 @@ export type PieceId = string;
 
 export type Coord = { x: number; y: number };
 
+export type CreatureKind = 'Ameba' | 'Goblin' | 'Soldier';
+
+export type CreatureStats = {
+  maxHp: number;
+  attack: number;
+  successorCost: number;
+};
+
 export type Piece = {
   id: PieceId;
   owner: PlayerId;
+  kind: CreatureKind;
+  stats: CreatureStats;
+  currentHp: number;
   position: Coord;
+};
+
+export type GamePhase = 'Reinforcement' | 'Main' | 'End';
+
+export type GameStatus = 'InProgress' | 'Finished';
+
+export type TurnState = {
+  movedPieceIds: PieceId[];
 };
 
 export type GameState = {
   turn: number;
   players: [PlayerId, PlayerId];
   activePlayer: PlayerId;
+  phase: GamePhase;
+  status: GameStatus;
+  winner: PlayerId | null;
+  turnState: TurnState;
   pieces: Piece[];
 };
 

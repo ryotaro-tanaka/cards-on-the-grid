@@ -6,6 +6,10 @@ export function applyEvent(state: GameState, event: Event): GameState {
       ...state,
       turn: event.nextTurn.turnNo,
       activePlayer: event.nextTurn.owner,
+      phase: 'Main',
+      turnState: {
+        movedPieceIds: [],
+      },
     };
   }
 
