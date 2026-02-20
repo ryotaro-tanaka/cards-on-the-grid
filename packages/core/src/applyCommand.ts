@@ -1,5 +1,5 @@
 import { applyEvent } from './applyEvent.js';
-import type { Command, Event, GameState, Piece, ValidationResult } from './types.js';
+import type { Command, Event, GameState, Piece, PlayerId, ValidationResult } from './types.js';
 import { validateIntent } from './validateIntent.js';
 
 function homeRows(owner: string): number[] {
@@ -16,6 +16,22 @@ function firstSpawnPosition(state: GameState, owner: string): { x: number; y: nu
         return { x, y };
       }
     }
+  }
+
+  return null;
+}
+
+function determineWinner(state: GameState): PlayerId | null {
+  const [p1, p2] = state.players;
+  const p1Pieces = state.pieces.filter((piece) => piece.owner === p1).length;
+  const p2Pieces = state.pieces.filter((piece) => piece.owner === p2).length;
+
+  if (p1Pieces === 0 && p2Pieces > 0) {
+    return p2;
+  }
+
+  if (p2Pieces === 0 && p1Pieces > 0) {
+    return p1;
   }
 
   return null;
@@ -122,17 +138,6 @@ function buildEvents(state: GameState, command: Command): Event[] {
       from: attacker.position,
       to: intent.to,
     });
-
-    const remainingDefenderCount = state.pieces.filter(
-      (piece) => piece.owner === defender.owner && piece.id !== defender.id,
-    ).length;
-
-    if (remainingDefenderCount === 0) {
-      events.push({
-        type: 'GameFinished',
-        winner: command.actorPlayerId,
-      });
-    }
   }
 
   return events;
@@ -149,6 +154,16 @@ export function applyCommand(
 
   const events = buildEvents(state, command);
   let nextState = events.reduce((currentState, event) => applyEvent(currentState, event), state);
+
+  const winner = determineWinner(nextState);
+  if (winner && !events.some((event) => event.type === 'GameFinished')) {
+    const finished: Event = {
+      type: 'GameFinished',
+      winner,
+    };
+    events.push(finished);
+    nextState = applyEvent(nextState, finished);
+  }
 
   if (command.intent.type === 'EndTurn') {
     nextState = {
