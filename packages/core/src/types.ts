@@ -3,16 +3,48 @@ export type PieceId = string;
 
 export type Coord = { x: number; y: number };
 
+export type CreatureKind = 'Ameba' | 'Goblin' | 'Soldier';
+
+export type CreatureStats = {
+  maxHp: number;
+  attack: number;
+  successorCost: number;
+};
+
 export type Piece = {
   id: PieceId;
   owner: PlayerId;
+  kind: CreatureKind;
+  stats: CreatureStats;
+  currentHp: number;
   position: Coord;
+};
+
+export type PendingSuccessor = {
+  id: string;
+  owner: PlayerId;
+  kind: CreatureKind;
+  stats: CreatureStats;
+  turnsRemaining: number;
+};
+
+export type GamePhase = 'Reinforcement' | 'Main' | 'End';
+
+export type GameStatus = 'InProgress' | 'Finished';
+
+export type TurnState = {
+  movedPieceIds: PieceId[];
 };
 
 export type GameState = {
   turn: number;
   players: [PlayerId, PlayerId];
   activePlayer: PlayerId;
+  phase: GamePhase;
+  status: GameStatus;
+  winner: PlayerId | null;
+  turnState: TurnState;
+  pendingSuccessors: PendingSuccessor[];
   pieces: Piece[];
 };
 
@@ -46,13 +78,39 @@ export type PieceMoved = {
   to: Coord;
 };
 
-export type Event = TurnEnded | PieceMoved;
+export type CombatResolved = {
+  type: 'CombatResolved';
+  attackerPieceId: PieceId;
+  defenderPieceId: PieceId;
+  damage: number;
+  defenderHpAfter: number;
+  defenderDefeated: boolean;
+};
+
+export type SuccessorSpawned = {
+  type: 'SuccessorSpawned';
+  pendingId: string;
+  piece: Piece;
+};
+
+export type GameFinished = {
+  type: 'GameFinished';
+  winner: PlayerId;
+};
+
+export type Event = TurnEnded | PieceMoved | CombatResolved | SuccessorSpawned | GameFinished;
 
 export type InvalidReason =
   | 'NOT_ACTIVE_PLAYER'
   | 'PIECE_NOT_FOUND'
   | 'PIECE_NOT_OWNED_BY_ACTOR'
-  | 'OUT_OF_BOUNDS';
+  | 'OUT_OF_BOUNDS'
+  | 'GAME_ALREADY_FINISHED'
+  | 'PHASE_MISMATCH'
+  | 'INVALID_MOVE_DISTANCE'
+  | 'SAME_POSITION'
+  | 'CELL_OCCUPIED'
+  | 'MOVE_ALREADY_USED_THIS_TURN';
 
 export type ValidationResult =
   | { ok: true }
