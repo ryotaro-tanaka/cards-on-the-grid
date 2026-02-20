@@ -1,5 +1,6 @@
 import {
   createWelcomeMessage,
+  handleAdminMessage,
   handleIntentMessage,
   handleResyncRequestMessage,
   openRoom,
@@ -145,9 +146,26 @@ export class RoomDO {
       return;
     }
 
-    const result = handleResyncRequestMessage(this.room, message);
-    this.room = result.room;
-    this.send(entry.socket, result.outbound);
+    if (message.type === 'ADMIN') {
+      const result = handleAdminMessage(this.room, message);
+      this.room = result.room;
+      this.destroyRoom();
+      return;
+    }
+
+    if (message.type === 'RESYNC_REQUEST') {
+      const result = handleResyncRequestMessage(this.room, message);
+      this.room = result.room;
+      this.send(entry.socket, result.outbound);
+    }
+  }
+
+  private destroyRoom(): void {
+    for (const peer of this.sockets) {
+      peer.socket.close(1000, 'ROOM_DESTROYED');
+    }
+
+    this.sockets.clear();
   }
 
   private send(socket: WebSocket, payload: ServerMessage | ServerMessage[]): void {
