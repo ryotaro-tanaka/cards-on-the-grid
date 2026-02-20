@@ -38,43 +38,190 @@ WebSocket:
 ### 1) 入室・初期同期
 
 - Request: `HELLO`（クライアント → サーバー）
-  - 入室宣言
 - Response: `WELCOME`（サーバー → クライアント）
-  - 現在の全状態を返す（初期同期）
 
 ### 2) ゲーム操作
 
 - Request: `INTENT`（クライアント → サーバー）
-  - 「やりたい操作」を送る（最小: `Move` / `EndTurn`）
 - Response（成功）: `EVENT`（サーバー → 全クライアント）
-  - サーバー確定イベント（必ず `seq` 付き）
 - Response（失敗）: `REJECT`（サーバー → 要求元クライアント）
-  - 整合性エラー（例: `TURN_MISMATCH`）
 
 ### 3) 再同期
 
 - Request: `RESYNC_REQUEST`（クライアント → サーバー）
-  - `fromSeq` を添えて再同期要求
 - Response: `SYNC`（サーバー → クライアント）
-  - 完全スナップショット（`seq` と `state`）
 
 ### 4) 管理操作
 
 - Request: `ADMIN`（クライアント → サーバー）
-  - `action: "DESTROY_ROOM"` でルーム状態を初期化し、接続中ソケットを全切断
 
 ---
 
-## メッセージ定義（参照）
+## 実メッセージ例（実装準拠）
 
-- `HELLO`: 入室宣言
-- `WELCOME`: 初期同期状態
-- `INTENT`: クライアント操作
-- `EVENT`: サーバー確定イベント（`seq` 付き）
-- `REJECT`: 操作拒否（整合性エラー）
-- `RESYNC_REQUEST`: 再同期要求（`fromSeq`）
-- `SYNC`: 再同期用スナップショット
-- `ADMIN`: 管理メッセージ
+以下は `packages/backend/src/ws.ts` と `packages/core/src/types.ts` の型定義に合わせたJSON例。
+
+### HELLO（Request）
+
+```json
+{
+  "type": "HELLO",
+  "payload": {
+    "playerId": "p1"
+  }
+}
+```
+
+### WELCOME（Response）
+
+```json
+{
+  "type": "WELCOME",
+  "payload": {
+    "roomId": "room-1",
+    "you": "p1",
+    "seq": 0,
+    "state": {
+      "turn": 1,
+      "players": ["p1", "p2"],
+      "activePlayer": "p1",
+      "pieces": [
+        { "id": "p1_1", "owner": "p1", "position": { "x": 0, "y": 0 } },
+        { "id": "p2_1", "owner": "p2", "position": { "x": 6, "y": 6 } }
+      ]
+    }
+  }
+}
+```
+
+### INTENT（Request: Move）
+
+```json
+{
+  "type": "INTENT",
+  "payload": {
+    "expectedTurn": 1,
+    "command": {
+      "actorPlayerId": "p1",
+      "intent": {
+        "type": "Move",
+        "pieceId": "p1_1",
+        "to": { "x": 2, "y": 2 }
+      }
+    }
+  }
+}
+```
+
+### INTENT（Request: EndTurn）
+
+```json
+{
+  "type": "INTENT",
+  "payload": {
+    "expectedTurn": 1,
+    "command": {
+      "actorPlayerId": "p1",
+      "intent": {
+        "type": "EndTurn"
+      }
+    }
+  }
+}
+```
+
+### EVENT（Response: PieceMoved）
+
+```json
+{
+  "type": "EVENT",
+  "payload": {
+    "seq": 1,
+    "event": {
+      "type": "PieceMoved",
+      "pieceId": "p1_1",
+      "from": { "x": 0, "y": 0 },
+      "to": { "x": 2, "y": 2 }
+    }
+  }
+}
+```
+
+### EVENT（Response: TurnEnded）
+
+```json
+{
+  "type": "EVENT",
+  "payload": {
+    "seq": 2,
+    "event": {
+      "type": "TurnEnded",
+      "nextTurn": {
+        "owner": "p2",
+        "turnNo": 2
+      }
+    }
+  }
+}
+```
+
+### REJECT（Response）
+
+```json
+{
+  "type": "REJECT",
+  "payload": {
+    "reason": "TURN_MISMATCH",
+    "expectedTurn": 2
+  }
+}
+```
+
+`reason` は実装上、以下を取りうる：
+- `TURN_MISMATCH`
+- `NOT_ACTIVE_PLAYER`
+- `PIECE_NOT_FOUND`
+- `PIECE_NOT_OWNED_BY_ACTOR`
+- `OUT_OF_BOUNDS`
+
+### RESYNC_REQUEST（Request）
+
+```json
+{
+  "type": "RESYNC_REQUEST",
+  "payload": {
+    "fromSeq": 10
+  }
+}
+```
+
+### SYNC（Response）
+
+```json
+{
+  "type": "SYNC",
+  "payload": {
+    "seq": 12,
+    "state": {
+      "turn": 3,
+      "players": ["p1", "p2"],
+      "activePlayer": "p1",
+      "pieces": []
+    }
+  }
+}
+```
+
+### ADMIN（Request）
+
+```json
+{
+  "type": "ADMIN",
+  "payload": {
+    "action": "DESTROY_ROOM"
+  }
+}
+```
 
 ---
 
