@@ -17,6 +17,7 @@ export function createInitialState(): GameState {
     turnState: {
       movedPieceIds: [],
     },
+    pendingSuccessors: [],
     pieces: [
       {
         id: 'p1_1',

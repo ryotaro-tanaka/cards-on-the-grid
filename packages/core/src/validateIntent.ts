@@ -22,12 +22,12 @@ export function validateIntent(state: GameState, command: Command): ValidationRe
     return { ok: false, reason: 'NOT_ACTIVE_PLAYER' };
   }
 
-  if (intent.type === 'EndTurn') {
-    return { ok: true };
-  }
-
   if (state.phase !== 'Main') {
     return { ok: false, reason: 'PHASE_MISMATCH' };
+  }
+
+  if (intent.type === 'EndTurn') {
+    return { ok: true };
   }
 
   if (state.turnState.movedPieceIds.length > 0) {
@@ -59,14 +59,15 @@ export function validateIntent(state: GameState, command: Command): ValidationRe
     return { ok: false, reason: 'INVALID_MOVE_DISTANCE' };
   }
 
-  const occupied = state.pieces.some(
+  const occupiedByAlly = state.pieces.some(
     (other) =>
       other.id !== piece.id &&
+      other.owner === actorPlayerId &&
       other.position.x === intent.to.x &&
       other.position.y === intent.to.y,
   );
 
-  if (occupied) {
+  if (occupiedByAlly) {
     return { ok: false, reason: 'CELL_OCCUPIED' };
   }
 

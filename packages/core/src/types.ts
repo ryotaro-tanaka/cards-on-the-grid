@@ -20,6 +20,14 @@ export type Piece = {
   position: Coord;
 };
 
+export type PendingSuccessor = {
+  id: string;
+  owner: PlayerId;
+  kind: CreatureKind;
+  stats: CreatureStats;
+  turnsRemaining: number;
+};
+
 export type GamePhase = 'Reinforcement' | 'Main' | 'End';
 
 export type GameStatus = 'InProgress' | 'Finished';
@@ -36,6 +44,7 @@ export type GameState = {
   status: GameStatus;
   winner: PlayerId | null;
   turnState: TurnState;
+  pendingSuccessors: PendingSuccessor[];
   pieces: Piece[];
 };
 
@@ -80,6 +89,7 @@ export type CombatResolved = {
 
 export type SuccessorSpawned = {
   type: 'SuccessorSpawned';
+  pendingId: string;
   piece: Piece;
 };
 
