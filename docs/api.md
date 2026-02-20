@@ -19,6 +19,7 @@ WebSocket:
 
 ※ playerId は固定文字列でもOK（例: p1 / p2）
 ※ name は表示名用（任意）
+※ 実装上、プレイヤー識別は接続URLの `playerId` クエリを使用する（`HELLO.payload.playerId` は現状ルーティングには未使用）。
 
 ---
 
@@ -37,8 +38,9 @@ WebSocket:
 
 ### 1) 入室・初期同期
 
+- 接続直後: `WELCOME`（サーバー → クライアント）
 - Request: `HELLO`（クライアント → サーバー）
-- Response: `WELCOME`（サーバー → クライアント）
+- Response: `WELCOME`（サーバー → クライアント、再送）
 
 ### 2) ゲーム操作
 

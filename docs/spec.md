@@ -29,7 +29,7 @@
 - 役割:
   - `authoritative` に手番とイベント順序を管理
   - `expectedTurn` などを検証
-  - `core.applyIntent` で状態遷移
+  - `core.applyCommand`（または同等のルール関数）で状態遷移
   - `seq` 採番した `EVENT` を配信
   - 不正/不整合は `REJECT` を返す
 
@@ -60,7 +60,7 @@
 - 通常時:
   1. client が `INTENT` 送信
   2. backend が認可・手番チェック
-  3. `core.applyIntent` 実行
+  3. `core.applyCommand` 実行
   4. `seq` を付与した `EVENT` を全員へ配信
 - 復帰時:
   - `WELCOME` + 必要な `SYNC`（スナップショットまたは欠番イベント）で再同期
