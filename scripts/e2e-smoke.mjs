@@ -4,6 +4,7 @@ import {
   createWelcomeMessage,
   handleIntentMessage,
   handleResyncRequestMessage,
+  handleAdminMessage,
 } from '../packages/backend/dist/index.js';
 import {
   createEmptyClientState,
@@ -108,5 +109,18 @@ recovered = reduceIncoming(recovered, sync.outbound[0]);
 assert.equal(recovered.seq, 2);
 assert.equal(recovered.state?.turn, 3);
 assert.equal(recovered.state?.activePlayer, 'p1');
+
+
+const destroyed = handleAdminMessage(room, {
+  type: 'ADMIN',
+  payload: {
+    action: 'DESTROY_ROOM',
+  },
+});
+
+assert.equal(destroyed.outbound.length, 0);
+assert.equal(destroyed.room.roomId, 'uninitialized');
+assert.equal(destroyed.room.seq, 0);
+assert.equal(destroyed.room.game.turn, 1);
 
 console.log('e2e-smoke: ok');

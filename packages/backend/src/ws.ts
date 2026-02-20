@@ -23,7 +23,14 @@ export type ResyncRequestMessage = {
   };
 };
 
-export type ClientMessage = HelloMessage | IntentMessage | ResyncRequestMessage;
+export type AdminMessage = {
+  type: 'ADMIN';
+  payload: {
+    action: 'DESTROY_ROOM';
+  };
+};
+
+export type ClientMessage = HelloMessage | IntentMessage | ResyncRequestMessage | AdminMessage;
 
 export type WelcomeMessage = {
   type: 'WELCOME';
@@ -132,5 +139,15 @@ export function handleResyncRequestMessage(
         },
       },
     ],
+  };
+}
+
+export function handleAdminMessage(
+  room: RoomState,
+  _message: AdminMessage,
+): { room: RoomState; outbound: ServerMessage[] } {
+  return {
+    room: createRoomState('uninitialized'),
+    outbound: [],
   };
 }
