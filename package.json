@@ -13,7 +13,9 @@
     "deploy": "npm run deploy:backend && npm run deploy:frontend",
     "e2e:smoke": "npm run typecheck && node --experimental-specifier-resolution=node scripts/e2e-smoke.mjs",
     "test:core": "npm run typecheck && node --experimental-specifier-resolution=node scripts/core-unit.mjs",
-    "test:frontend": "npm run typecheck && node --experimental-specifier-resolution=node scripts/frontend-unit.mjs"
+    "test:frontend": "npm run typecheck && node --experimental-specifier-resolution=node scripts/frontend-unit.mjs",
+    "newdeploy:backend": "wrangler --cwd packages/backend deploy",
+    "newdeploy:frontend": "wrangler --cwd packages/frontend pages deploy"
   },
   "devDependencies": {
     "typescript": "^5.0.0"
