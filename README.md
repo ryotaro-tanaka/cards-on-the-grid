@@ -17,6 +17,7 @@ Worker(backend) と Pages(frontend) は Cloudflare 上では別デプロイ単�
 
 - backend: `npm run deploy:backend`
 - frontend: `npm run deploy:frontend`
+- frontend build: `npm run build:frontend:pages` (Vite で `.pages-dist` を生成)
 - all-in-one: `npm run deploy`
 
 ### 必須環境変数
