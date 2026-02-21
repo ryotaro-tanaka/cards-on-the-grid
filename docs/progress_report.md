@@ -84,8 +84,8 @@
 - frontend unit / e2e smoke での基礎検証
 
 **未完成のもの**
-- React コンポーネント実装（実DOM描画、クリックハンドラ、ボタンUI）
-- Cloudflare Pages 向けのビルド/配信設定と本番デプロイ検証
+- React コンポーネント実装（現状は素のDOMレンダラで実装済み）
+- Cloudflare Pages の本番デプロイ検証（`newdeploy:frontend` は `.pages-dist` をデプロイする構成に更新済み）
 - 実ブラウザ上での対戦操作フローのE2E（2クライアント接続・操作）
 - PWAとしての配布要件（manifest / service worker / install導線）
 
