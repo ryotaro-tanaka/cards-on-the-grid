@@ -16,7 +16,7 @@
 
 ## 全体進捗サマリ（2026-02-21 02:10更新 / Australia/Cairns(AEST)）
 
-- **達成済み（基盤）**: WebSocket入室、`INTENT` 受付、`EVENT/REJECT/SYNC` 配信、`seq` 順適用
+- **達成済み（基盤）**: WebSocket入室、`INTENT` 受付、`EVENT/REJECT/SYNC` 配信、`seq` 順適用、通しe2e smoke整備
 - **達成済み（core主要機能）**: Creature種別/ステータス、Move検証強化、自動戦闘、死亡時補充キュー、補充召喚、勝敗確定、終局後reject
 - **未達成（主にfrontend）**: UI体験層、終了状態表示の磨き込み
 - **注意点（仕様未確定の暫定実装）**:

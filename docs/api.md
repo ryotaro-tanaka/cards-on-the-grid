@@ -33,7 +33,7 @@ WebSocket:
 - 最低限の整合性チェック：
   - 手番でないプレイヤーの操作は `REJECT`
   - `expectedTurn` 不一致は `REJECT(TURN_MISMATCH)`
-- クライアントが欠損した場合に `SYNC` でスナップショット再同期
+- クライアントが欠損した場合に、履歴があれば `EVENT` 差分再送、履歴不足時は `SYNC` でスナップショット再同期
 
 ---
 
@@ -267,4 +267,4 @@ WebSocket:
   - frontend: `packages/frontend/src/reducer.ts`
 - E2E確認
   - `npm run e2e:smoke`
-  - `WELCOME -> EVENT` と `REJECT`、`EVENT欠損 -> SYNC復旧` を確認
+  - `WELCOME -> EVENT` と `REJECT`、`EVENT欠損 -> EVENT差分復旧`、履歴不足時 `SYNC` fallback を確認
