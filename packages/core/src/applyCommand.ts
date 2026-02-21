@@ -22,16 +22,13 @@ function firstSpawnPosition(state: GameState, owner: string): { x: number; y: nu
 }
 
 function determineWinner(state: GameState): PlayerId | null {
-  const [p1, p2] = state.players;
-  const p1Pieces = state.pieces.filter((piece) => piece.owner === p1).length;
-  const p2Pieces = state.pieces.filter((piece) => piece.owner === p2).length;
+  const [firstPlayer, secondPlayer] = state.players;
 
-  if (p1Pieces === 0 && p2Pieces > 0) {
-    return p2;
-  }
-
-  if (p2Pieces === 0 && p1Pieces > 0) {
-    return p1;
+  for (const piece of state.pieces) {
+    const opponentHome = piece.owner === firstPlayer ? homeRows(secondPlayer) : homeRows(firstPlayer);
+    if (opponentHome.includes(piece.position.y)) {
+      return piece.owner;
+    }
   }
 
   return null;

@@ -250,6 +250,46 @@ assert.equal(randomStartP2.game.activePlayer, 'p2');
 const unchangedAfterStarted = startRoom(randomStartP1, () => 0.9);
 assert.equal(unchangedAfterStarted.game.activePlayer, 'p1');
 
+let finishRoom = startRoom(openRoom('room-finish'), () => 0.1);
+finishRoom = {
+  ...finishRoom,
+  game: {
+    ...finishRoom.game,
+    turn: 7,
+    activePlayer: 'p1',
+    pieces: [
+      {
+        id: 'p1_soldier_test',
+        owner: 'p1',
+        kind: 'Soldier',
+        stats: { maxHp: 3, attack: 3, successorCost: 3 },
+        currentHp: 3,
+        position: { x: 3, y: 4 },
+      },
+    ],
+  },
+};
+
+const finishByInvasion = handleIntentMessage(finishRoom, 'p1', {
+  type: 'INTENT',
+  payload: {
+    expectedTurn: 7,
+    command: {
+      actorPlayerId: 'p1',
+      intent: { type: 'Move', pieceId: 'p1_soldier_test', to: { x: 3, y: 5 } },
+    },
+  },
+});
+
+assert.equal(finishByInvasion.outbound.length, 2);
+assert.equal(finishByInvasion.outbound[0].type, 'EVENT');
+assert.equal(finishByInvasion.outbound[0].payload.event.type, 'PieceMoved');
+assert.equal(finishByInvasion.outbound[1].type, 'EVENT');
+assert.equal(finishByInvasion.outbound[1].payload.event.type, 'GameFinished');
+assert.equal(finishByInvasion.room.lifecycle, 'finished');
+assert.equal(finishByInvasion.room.game.status, 'Finished');
+assert.equal(finishByInvasion.room.game.winner, 'p1');
+
 
 
 class FakeSocket {
