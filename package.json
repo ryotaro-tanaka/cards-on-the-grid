@@ -8,14 +8,12 @@
     "typecheck": "tsc -b",
     "clean": "rm -rf packages/*/dist",
     "build:frontend:pages": "npm run typecheck && vite build --config packages/frontend/vite.config.mjs",
-    "deploy:backend": "wrangler deploy --config wrangler.jsonc",
-    "deploy:frontend": "npm run build:frontend:pages && node scripts/deploy-frontend-pages.mjs",
+    "deploy:backend": "wrangler --cwd packages/backend deploy",
+    "deploy:frontend": "npm run build:frontend:pages && wrangler --cwd packages/frontend pages deploy ../../.pages-dist",
     "deploy": "npm run deploy:backend && npm run deploy:frontend",
     "e2e:smoke": "npm run typecheck && node --experimental-specifier-resolution=node scripts/e2e-smoke.mjs",
     "test:core": "npm run typecheck && node --experimental-specifier-resolution=node scripts/core-unit.mjs",
-    "test:frontend": "npm run typecheck && node --experimental-specifier-resolution=node scripts/frontend-unit.mjs",
-    "newdeploy:backend": "wrangler --cwd packages/backend deploy",
-    "newdeploy:frontend": "npm run build:frontend:pages && wrangler --cwd packages/frontend pages deploy ../../.pages-dist --project-name cards-on-the-grid-frontend"
+    "test:frontend": "npm run typecheck && node --experimental-specifier-resolution=node scripts/frontend-unit.mjs"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

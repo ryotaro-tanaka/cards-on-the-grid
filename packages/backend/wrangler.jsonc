@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "cards-on-the-grid-backend",
-  "main": "packages/backend/src/worker.ts",
+  "main": "src/worker.ts",
   "compatibility_date": "2026-02-19",
   "workers_dev": true,
 
