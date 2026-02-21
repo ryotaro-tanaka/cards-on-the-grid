@@ -34,21 +34,21 @@ function pieceAt(state, x, y) {
   const state = {
     ...initial,
     pieces: initial.pieces.map((piece) => {
-      if (piece.id === p1Ameba.id) return { ...piece, position: { x: 0, y: 0 } };
-      if (piece.id === p2Soldier.id) return { ...piece, position: { x: 1, y: 1 }, currentHp: 3 };
+      if (piece.id === p1Ameba.id) return { ...piece, position: { x: 0, y: 3 } };
+      if (piece.id === p2Soldier.id) return { ...piece, position: { x: 1, y: 2 }, currentHp: 3 };
       return piece;
     }),
   };
 
   const result = applyCommand(state, {
     actorPlayerId: 'p1',
-    intent: { type: 'Move', pieceId: p1Ameba.id, to: { x: 1, y: 1 } },
+    intent: { type: 'Move', pieceId: p1Ameba.id, to: { x: 1, y: 2 } },
   });
 
   assert.equal(result.validation.ok, true);
   assert.equal(result.events[0].type, 'CombatResolved');
   assert.equal(result.events.length, 1);
-  assert.equal(pieceAt(result.state, 1, 1)?.id, p2Soldier.id);
+  assert.equal(pieceAt(result.state, 1, 2)?.id, p2Soldier.id);
 }
 
 // 正常系: 死亡と補充
@@ -96,29 +96,46 @@ function pieceAt(state, x, y) {
   assert.equal(endP1.events.some((e) => e.type === 'SuccessorSpawned'), true);
 }
 
-// 正常系: 勝敗確定
+// 正常系: 勝敗確定（相手初期陣地への侵入）
 {
   const initial = createInitialState();
   const p1Soldier = initial.pieces.find((p) => p.owner === 'p1' && p.kind === 'Soldier');
-  const p2Ameba = initial.pieces.find((p) => p.owner === 'p2' && p.kind === 'Ameba');
-  assert.ok(p1Soldier && p2Ameba);
+  assert.ok(p1Soldier);
 
   const state = {
     ...initial,
-    pieces: [
-      { ...p1Soldier, position: { x: 2, y: 2 } },
-      { ...p2Ameba, position: { x: 3, y: 3 }, currentHp: 1 },
-    ],
+    pieces: [{ ...p1Soldier, position: { x: 2, y: 4 } }],
   };
 
   const result = applyCommand(state, {
     actorPlayerId: 'p1',
-    intent: { type: 'Move', pieceId: p1Soldier.id, to: { x: 3, y: 3 } },
+    intent: { type: 'Move', pieceId: p1Soldier.id, to: { x: 2, y: 5 } },
   });
 
   assert.equal(result.events.some((event) => event.type === 'GameFinished'), true);
   assert.equal(result.state.status, 'Finished');
   assert.equal(result.state.winner, 'p1');
+}
+
+// 正常系: 相手盤面0体だけでは終局しない
+{
+  const initial = createInitialState();
+  const p1Soldier = initial.pieces.find((p) => p.owner === 'p1' && p.kind === 'Soldier');
+  assert.ok(p1Soldier);
+
+  const state = {
+    ...initial,
+    pieces: [{ ...p1Soldier, position: { x: 2, y: 2 } }],
+  };
+
+  const result = applyCommand(state, {
+    actorPlayerId: 'p1',
+    intent: { type: 'Move', pieceId: p1Soldier.id, to: { x: 2, y: 3 } },
+  });
+
+  assert.equal(result.events.some((event) => event.type === 'GameFinished'), false);
+  assert.equal(result.state.status, 'InProgress');
+  assert.equal(result.state.winner, null);
 }
 
 // 異常系: 手番違反
