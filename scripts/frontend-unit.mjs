@@ -11,6 +11,7 @@ import {
   describeConnectionStatus,
   describeRejectReason,
   describeRoomStatus,
+  resolveWebSocketBaseUrl,
   attachPwaMetadata,
   registerServiceWorker,
   reduceIncoming,
@@ -33,6 +34,31 @@ client = reduceIncoming(client, {
 assert.equal(canAct(client), true);
 assert.equal(describeRoomStatus(client.roomStatus), 'match in progress');
 assert.equal(describeConnectionStatus('closed', false), 'disconnected (you can reconnect)');
+
+assert.equal(
+  resolveWebSocketBaseUrl({
+    configuredBaseUrl: '',
+    locationOrigin: 'https://e1521436.cards-on-the-grid-frontend.pages.dev',
+    locationHostname: 'e1521436.cards-on-the-grid-frontend.pages.dev',
+  }),
+  '',
+);
+assert.equal(
+  resolveWebSocketBaseUrl({
+    configuredBaseUrl: '',
+    locationOrigin: 'http://localhost:5173',
+    locationHostname: 'localhost',
+  }),
+  'ws://localhost:5173',
+);
+assert.equal(
+  resolveWebSocketBaseUrl({
+    configuredBaseUrl: 'wss://cards-on-the-grid-backend.example.workers.dev',
+    locationOrigin: 'https://app.example.com',
+    locationHostname: 'app.example.com',
+  }),
+  'wss://cards-on-the-grid-backend.example.workers.dev',
+);
 
 const board = buildBoardViewModel(client, null);
 assert.equal(board.size, 7);
