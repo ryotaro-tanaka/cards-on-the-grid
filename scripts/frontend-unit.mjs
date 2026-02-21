@@ -11,6 +11,8 @@ import {
   describeConnectionStatus,
   describeRejectReason,
   describeRoomStatus,
+  attachPwaMetadata,
+  registerServiceWorker,
   reduceIncoming,
   selectPiece,
 } from '../packages/frontend/dist/index.js';
@@ -188,5 +190,66 @@ assert.equal(sockets[1].sent[0].type, 'HELLO');
 
 connection.close();
 assert.equal(connectionStatuses.at(-1), 'closed');
+
+const createdElements = [];
+const headChildren = [];
+const fakeHead = {
+  querySelector(selector) {
+    if (selector === 'link[rel="manifest"]') {
+      return headChildren.find((item) => item.tagName === 'LINK' && item.rel === 'manifest') ?? null;
+    }
+    if (selector === 'meta[name="theme-color"]') {
+      return headChildren.find((item) => item.tagName === 'META' && item.name === 'theme-color') ?? null;
+    }
+    return null;
+  },
+  appendChild(element) {
+    headChildren.push(element);
+    return element;
+  },
+};
+
+globalThis.document = {
+  createElement(tagName) {
+    const base = { tagName: tagName.toUpperCase() };
+    createdElements.push(base);
+    return base;
+  },
+};
+
+attachPwaMetadata(fakeHead);
+const manifestLink = headChildren.find((item) => item.tagName === 'LINK');
+const themeMeta = headChildren.find((item) => item.tagName === 'META');
+assert.equal(manifestLink?.href, '/manifest.webmanifest');
+assert.equal(themeMeta?.content, '#0f172a');
+
+attachPwaMetadata(fakeHead, { manifestPath: '/app.webmanifest', themeColor: '#111111' });
+assert.equal(headChildren.length, 2);
+assert.equal(manifestLink?.href, '/app.webmanifest');
+assert.equal(themeMeta?.content, '#111111');
+
+const registeredPaths = [];
+Object.defineProperty(globalThis, 'navigator', {
+  configurable: true,
+  value: {
+  serviceWorker: {
+    register: async (path) => {
+      registeredPaths.push(path);
+      return {};
+    },
+  },
+  },
+});
+
+assert.equal(await registerServiceWorker(), true);
+assert.equal(registeredPaths[0], '/sw.js');
+assert.equal(await registerServiceWorker({ serviceWorkerPath: '/worker.js' }), true);
+assert.equal(registeredPaths[1], '/worker.js');
+
+Object.defineProperty(globalThis, 'navigator', {
+  configurable: true,
+  value: undefined,
+});
+assert.equal(await registerServiceWorker(), false);
 
 console.log('frontend-unit: ok');

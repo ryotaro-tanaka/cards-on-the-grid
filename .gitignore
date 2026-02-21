@@ -22,3 +22,4 @@ tasks/run.log
 tasks/verify_report.json
 tasks/.verify_*.out
 tasks/.verify_*.err
+.pages-dist/
