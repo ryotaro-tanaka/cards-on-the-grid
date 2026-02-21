@@ -1,12 +1,15 @@
 import {
+  createRejectMessage,
   createWelcomeMessage,
   handleAdminMessage,
   handleIntentMessage,
   handleResyncRequestMessage,
   openRoom,
+  selectPlayerForConnection,
   type ClientMessage,
   type ServerMessage,
 } from './ws.js';
+import type { PlayerId } from '../../core/dist/index.js';
 
 declare const WebSocketPair: {
   new (): { 0: WebSocket; 1: WebSocket };
@@ -72,12 +75,12 @@ export default {
 
 type RoomSocket = {
   socket: WebSocket;
-  playerId: string;
+  playerId: PlayerId;
 };
 
 export class RoomDO {
   private room = openRoom('uninitialized');
-  private sockets = new Set<RoomSocket>();
+  private sockets = new Map<PlayerId, RoomSocket>();
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -108,11 +111,28 @@ export class RoomDO {
   private handleConnection(socket: AcceptableWebSocket, url: URL): void {
     socket.accept();
 
-    const playerId = url.searchParams.get('playerId') ?? `p${this.sockets.size + 1}`;
-    const entry: RoomSocket = { socket, playerId };
-    this.sockets.add(entry);
+    const decision = selectPlayerForConnection(
+      this.room,
+      url.searchParams.get('playerId'),
+      new Set(this.sockets.keys()),
+    );
 
-    const welcome = createWelcomeMessage(this.room, playerId);
+    if (!decision.ok) {
+      this.send(socket, createRejectMessage(this.room, decision.reason));
+      socket.close(1008, decision.reason);
+      return;
+    }
+
+    const existing = this.sockets.get(decision.playerId);
+    if (existing && decision.replacesExisting) {
+      existing.socket.close(1000, 'RECONNECTED');
+      this.sockets.delete(decision.playerId);
+    }
+
+    const entry: RoomSocket = { socket, playerId: decision.playerId };
+    this.sockets.set(entry.playerId, entry);
+
+    const welcome = createWelcomeMessage(this.room, entry.playerId);
     this.send(entry.socket, welcome);
 
     socket.addEventListener('message', (event: MessageEvent<string>) => {
@@ -120,7 +140,10 @@ export class RoomDO {
     });
 
     socket.addEventListener('close', () => {
-      this.sockets.delete(entry);
+      const active = this.sockets.get(entry.playerId);
+      if (active === entry) {
+        this.sockets.delete(entry.playerId);
+      }
     });
   }
 
@@ -162,7 +185,7 @@ export class RoomDO {
 
   private destroyRoom(): void {
     for (const peer of this.sockets) {
-      peer.socket.close(1000, 'ROOM_DESTROYED');
+      peer[1].socket.close(1000, 'ROOM_DESTROYED');
     }
 
     this.sockets.clear();
@@ -181,7 +204,7 @@ export class RoomDO {
 
   private broadcast(messages: ServerMessage[]): void {
     for (const peer of this.sockets) {
-      this.send(peer.socket, messages);
+      this.send(peer[1].socket, messages);
     }
   }
 }

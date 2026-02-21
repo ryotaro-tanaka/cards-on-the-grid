@@ -20,6 +20,8 @@ WebSocket:
 ※ playerId は固定文字列でもOK（例: p1 / p2）
 ※ name は表示名用（任意）
 ※ 実装上、プレイヤー識別は接続URLの `playerId` クエリを使用する（`HELLO.payload.playerId` は現状ルーティングには未使用）。
+※ 同一 `playerId` の再接続は許可され、既存接続は `RECONNECTED` として切断される。
+※ ルームが2人で埋まっており、既存プレイヤーとして再接続でもない場合は `REJECT(reason=ROOM_FULL)` 後に切断される。
 
 ---
 
@@ -191,6 +193,7 @@ WebSocket:
 - `SAME_POSITION`
 - `CELL_OCCUPIED`
 - `MOVE_ALREADY_USED_THIS_TURN`
+- `ROOM_FULL`
 
 ### RESYNC_REQUEST（Request）
 

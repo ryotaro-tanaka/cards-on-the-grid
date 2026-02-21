@@ -53,7 +53,7 @@ export type EventMessage = {
 export type RejectMessage = {
   type: 'REJECT';
   payload: {
-    reason: RejectedIntent['reason'];
+    reason: RejectReason;
     expectedTurn: number;
   };
 };
@@ -67,6 +67,41 @@ export type SyncMessage = {
 };
 
 export type ServerMessage = WelcomeMessage | EventMessage | RejectMessage | SyncMessage;
+
+export type RejectReason = RejectedIntent['reason'] | 'ROOM_FULL';
+
+export function selectPlayerForConnection(
+  room: RoomState,
+  requestedPlayerId: string | null,
+  activePlayerIds: ReadonlySet<PlayerId>,
+): { ok: true; playerId: PlayerId; replacesExisting: boolean } | { ok: false; reason: 'ROOM_FULL' } {
+  const players = room.game.players;
+
+  const normalizedRequested = players.find((playerId) => playerId === requestedPlayerId) ?? null;
+
+  if (normalizedRequested) {
+    return {
+      ok: true,
+      playerId: normalizedRequested,
+      replacesExisting: activePlayerIds.has(normalizedRequested),
+    };
+  }
+
+  const availablePlayerId = players.find((playerId) => !activePlayerIds.has(playerId));
+
+  if (!availablePlayerId) {
+    return {
+      ok: false,
+      reason: 'ROOM_FULL',
+    };
+  }
+
+  return {
+    ok: true,
+    playerId: availablePlayerId,
+    replacesExisting: false,
+  };
+}
 
 export function openRoom(roomId: string): RoomState {
   return createRoomState(roomId);
@@ -84,6 +119,16 @@ export function createWelcomeMessage(room: RoomState, playerId: PlayerId): Welco
   };
 }
 
+export function createRejectMessage(room: RoomState, reason: RejectReason): RejectMessage {
+  return {
+    type: 'REJECT',
+    payload: {
+      reason,
+      expectedTurn: room.game.turn,
+    },
+  };
+}
+
 export function handleIntentMessage(
   room: RoomState,
   message: IntentMessage,
@@ -97,13 +142,7 @@ export function handleIntentMessage(
     return {
       room,
       outbound: [
-        {
-          type: 'REJECT',
-          payload: {
-            reason: result.reason,
-            expectedTurn: room.game.turn,
-          },
-        },
+        createRejectMessage(room, result.reason),
       ],
     };
   }
