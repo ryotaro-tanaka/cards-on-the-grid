@@ -14,6 +14,23 @@ export type FrontendModuleBoundary = {
   render: 'ClientStateをUI表示へ変換';
 };
 
+type ReadyStateCarrier = {
+  readyState: number;
+};
+
+type WebSocketEventCarrier = {
+  data: unknown;
+};
+
+export type WebSocketLike = ReadyStateCarrier & {
+  onopen: ((event?: unknown) => void) | null;
+  onclose: ((event?: unknown) => void) | null;
+  onerror: ((event?: unknown) => void) | null;
+  onmessage: ((event: WebSocketEventCarrier) => void) | null;
+  send: (data: string) => void;
+  close: () => void;
+};
+
 export type ConnectOptions = {
   baseUrl: string;
   roomId: string;
@@ -23,15 +40,17 @@ export type ConnectOptions = {
   onResyncStatusChange?: (isResyncing: boolean) => void;
   onMessage?: (message: IncomingMessage) => void;
   onInvalidMessage?: (raw: string) => void;
+  webSocketFactory?: (url: string) => WebSocketLike;
 };
 
 export type FrontendConnection = {
   sendIntent: (command: Command, expectedTurn: number) => void;
   requestResync: (fromSeq: number) => void;
+  reconnect: () => void;
   close: () => void;
 };
 
-export function toConnectionStatus(socket: Pick<WebSocket, 'readyState'>): ConnectionStatus {
+export function toConnectionStatus(socket: ReadyStateCarrier): ConnectionStatus {
   if (socket.readyState === WebSocket.OPEN) {
     return 'open';
   }
@@ -58,12 +77,13 @@ export function createRoomWebSocketUrl(baseUrl: string, roomId: string, name?: s
 
 export function connect(options: ConnectOptions): FrontendConnection {
   const wsUrl = createRoomWebSocketUrl(options.baseUrl, options.roomId, options.name);
-  const socket = new WebSocket(wsUrl);
+  const createSocket: (url: string) => WebSocketLike = options.webSocketFactory
+    ?? ((url: string) => new WebSocket(url) as unknown as WebSocketLike);
+
+  let socket: WebSocketLike = createSocket(wsUrl);
   let currentSeq = 0;
   let hasKnownState = false;
   let resyncing = false;
-
-  options.onConnectionStatusChange?.(toConnectionStatus(socket));
 
   const setResyncing = (next: boolean) => {
     if (resyncing === next) {
@@ -72,6 +92,64 @@ export function connect(options: ConnectOptions): FrontendConnection {
 
     resyncing = next;
     options.onResyncStatusChange?.(next);
+  };
+
+  const bindSocketHandlers = () => {
+    options.onConnectionStatusChange?.(toConnectionStatus(socket));
+
+    socket.onopen = () => {
+      options.onConnectionStatusChange?.('open');
+      send({
+        type: 'HELLO',
+        payload: {
+          playerId: options.playerId,
+        },
+      });
+    };
+
+    socket.onclose = () => {
+      options.onConnectionStatusChange?.('closed');
+    };
+
+    socket.onerror = () => {
+      options.onConnectionStatusChange?.('closed');
+    };
+
+    socket.onmessage = (event) => {
+      if (typeof event.data !== 'string') {
+        options.onInvalidMessage?.('[non-string frame]');
+        return;
+      }
+
+      const parsed = safeParse(event.data);
+      if (!isIncomingMessage(parsed)) {
+        options.onInvalidMessage?.(event.data);
+        return;
+      }
+
+      if (parsed.type === 'WELCOME' || parsed.type === 'SYNC') {
+        hasKnownState = true;
+        currentSeq = parsed.payload.seq;
+        setResyncing(false);
+        options.onMessage?.(parsed);
+        return;
+      }
+
+      if (parsed.type === 'EVENT') {
+        const expectedSeq = currentSeq + 1;
+        if (!hasKnownState || parsed.payload.seq !== expectedSeq) {
+          requestResync(currentSeq);
+          return;
+        }
+
+        currentSeq = parsed.payload.seq;
+        setResyncing(false);
+        options.onMessage?.(parsed);
+        return;
+      }
+
+      options.onMessage?.(parsed);
+    };
   };
 
   const send = (message: OutgoingMessage) => {
@@ -90,59 +168,7 @@ export function connect(options: ConnectOptions): FrontendConnection {
     });
   };
 
-  socket.onopen = () => {
-    options.onConnectionStatusChange?.('open');
-    send({
-      type: 'HELLO',
-      payload: {
-        playerId: options.playerId,
-      },
-    });
-  };
-
-  socket.onclose = () => {
-    options.onConnectionStatusChange?.('closed');
-  };
-
-  socket.onerror = () => {
-    options.onConnectionStatusChange?.(toConnectionStatus(socket));
-  };
-
-  socket.onmessage = (event) => {
-    if (typeof event.data !== 'string') {
-      options.onInvalidMessage?.('[non-string frame]');
-      return;
-    }
-
-    const parsed = safeParse(event.data);
-    if (!isIncomingMessage(parsed)) {
-      options.onInvalidMessage?.(event.data);
-      return;
-    }
-
-    if (parsed.type === 'WELCOME' || parsed.type === 'SYNC') {
-      hasKnownState = true;
-      currentSeq = parsed.payload.seq;
-      setResyncing(false);
-      options.onMessage?.(parsed);
-      return;
-    }
-
-    if (parsed.type === 'EVENT') {
-      const expectedSeq = currentSeq + 1;
-      if (!hasKnownState || parsed.payload.seq !== expectedSeq) {
-        requestResync(currentSeq);
-        return;
-      }
-
-      currentSeq = parsed.payload.seq;
-      setResyncing(false);
-      options.onMessage?.(parsed);
-      return;
-    }
-
-    options.onMessage?.(parsed);
-  };
+  bindSocketHandlers();
 
   return {
     sendIntent(command: Command, expectedTurn: number) {
@@ -155,6 +181,11 @@ export function connect(options: ConnectOptions): FrontendConnection {
       });
     },
     requestResync,
+    reconnect() {
+      socket.close();
+      socket = createSocket(wsUrl);
+      bindSocketHandlers();
+    },
     close() {
       socket.close();
     },

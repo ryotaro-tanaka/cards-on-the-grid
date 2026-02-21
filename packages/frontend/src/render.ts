@@ -5,7 +5,9 @@ export type ViewModel = {
   roomLabel: string;
   roomStatusLabel: string;
   turnLabel: string;
+  connectionLabel: string;
   actionAvailabilityMessage: string;
+  matchResultMessage: string | null;
   canOperate: boolean;
   canEndTurn: boolean;
   selectedPieceId: string | null;
@@ -25,7 +27,9 @@ export function buildViewModel(state: ClientState, selectedPieceId: string | nul
     roomLabel,
     roomStatusLabel: describeRoomStatus(state.roomStatus),
     turnLabel,
+    connectionLabel: describeConnectionStatus(state.connectionStatus, state.isResyncing),
     actionAvailabilityMessage: describeActionAvailability(state, canOperate),
+    matchResultMessage: describeMatchResult(state),
     canOperate,
     canEndTurn: canOperate,
     selectedPieceId,
@@ -50,6 +54,22 @@ export function describeRoomStatus(status: RoomStatus | null): string {
   return 'room status unknown';
 }
 
+export function describeConnectionStatus(connectionStatus: ClientState['connectionStatus'], isResyncing: boolean): string {
+  if (isResyncing) {
+    return 'resyncing game state...';
+  }
+
+  if (connectionStatus === 'open') {
+    return 'connected';
+  }
+
+  if (connectionStatus === 'connecting') {
+    return 'connecting...';
+  }
+
+  return 'disconnected (you can reconnect)';
+}
+
 export function describeRejectReason(reason: RejectReason): string {
   const messages: Record<RejectReason, string> = {
     TURN_MISMATCH: 'Turn mismatch. Please resync and try again.',
@@ -72,6 +92,10 @@ export function describeRejectReason(reason: RejectReason): string {
 }
 
 function describeActionAvailability(state: ClientState, canOperateNow: boolean): string {
+  if (state.roomStatus === 'finished') {
+    return '操作不可: 対戦は終了しています。';
+  }
+
   if (state.roomStatus !== 'started') {
     return '操作待機中: 対戦開始を待っています。';
   }
@@ -85,4 +109,20 @@ function describeActionAvailability(state: ClientState, canOperateNow: boolean):
   }
 
   return '操作可能: あなたのターンです。';
+}
+
+function describeMatchResult(state: ClientState): string | null {
+  if (state.roomStatus !== 'finished') {
+    return null;
+  }
+
+  if (!state.state?.winner || !state.you) {
+    return '対戦終了';
+  }
+
+  if (state.state.winner === state.you) {
+    return `対戦終了: あなたの勝利 (${state.state.winner})`;
+  }
+
+  return `対戦終了: あなたの敗北 (winner: ${state.state.winner})`;
 }

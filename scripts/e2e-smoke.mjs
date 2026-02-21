@@ -12,6 +12,7 @@ import {
 } from '../packages/backend/dist/index.js';
 import { RoomDO } from '../packages/backend/dist/worker.js';
 import {
+  buildViewModel,
   createEmptyClientState,
   reduceIncoming,
 } from '../packages/frontend/dist/index.js';
@@ -431,3 +432,8 @@ assert.equal(s1Reconnect.sent.at(-1).type, 'SYNC');
 assert.equal(s1Reconnect.sent.at(-1).payload.seq, 2);
 
 console.log('e2e-smoke: ok');
+
+
+const uiView = buildViewModel(client, null);
+assert.equal(uiView.board.cells.length, 49);
+assert.equal(typeof uiView.actionAvailabilityMessage, 'string');
