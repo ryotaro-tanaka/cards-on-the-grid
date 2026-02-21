@@ -41,6 +41,8 @@ export type RejectedIntent = {
 
 export type IntentHandlingResult = AcceptedIntent | RejectedIntent;
 
+export type RandomSource = () => number;
+
 export function createRoomState(roomId: string): RoomState {
   return {
     roomId,
@@ -54,14 +56,21 @@ export function resolvePlayerId(room: RoomState, rawPlayerId: string): PlayerId 
   return room.game.players.find((playerId) => playerId === rawPlayerId) ?? null;
 }
 
-export function markRoomStarted(room: RoomState): RoomState {
+export function markRoomStarted(room: RoomState, random: RandomSource = Math.random): RoomState {
   if (room.lifecycle !== 'waiting') {
     return room;
   }
 
+  const [firstPlayer, secondPlayer] = room.game.players;
+  const activePlayer = random() < 0.5 ? firstPlayer : secondPlayer;
+
   return {
     ...room,
     lifecycle: 'started',
+    game: {
+      ...room.game,
+      activePlayer,
+    },
   };
 }
 

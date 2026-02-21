@@ -42,7 +42,7 @@ WebSocket:
 ### 0) ルーム状態遷移
 
 - `waiting`: 0〜1人がseat確定している状態
-- `started`: 2人のseatが確定した状態（この時点から `INTENT` を受理）
+- `started`: 2人のseatが確定し、先手がランダム決定された状態（この時点から `INTENT` を受理）
 - `finished`: 終局後状態
 
 ### 1) 入室・初期同期
@@ -50,7 +50,7 @@ WebSocket:
 - Request: `HELLO`（クライアント → サーバー）
 - Response: `WELCOME`（サーバー → クライアント）
 - `HELLO` は同一接続で再送しても冪等（同じseatなら `WELCOME` 再送）
-- 2人のseatが揃うと、`WELCOME.payload.roomStatus=started` が反映される
+- 2人のseatが揃うと、`WELCOME.payload.roomStatus=started` とランダム決定された `state.activePlayer` が反映される
 
 ### 2) ゲーム操作
 

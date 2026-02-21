@@ -95,8 +95,8 @@ export function openRoom(roomId: string): RoomState {
   return createRoomState(roomId);
 }
 
-export function startRoom(room: RoomState): RoomState {
-  return markRoomStarted(room);
+export function startRoom(room: RoomState, random: () => number = Math.random): RoomState {
+  return markRoomStarted(room, random);
 }
 
 export function createWelcomeMessage(room: RoomState, playerId: PlayerId): WelcomeMessage {

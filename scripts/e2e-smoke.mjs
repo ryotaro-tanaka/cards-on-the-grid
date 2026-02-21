@@ -36,7 +36,7 @@ const beforeStart = handleIntentMessage(room, {
 assert.equal(beforeStart.outbound[0].type, 'REJECT');
 assert.equal(beforeStart.outbound[0].payload.reason, 'PHASE_MISMATCH');
 
-room = startRoom(room);
+room = startRoom(room, () => 0);
 
 const accepted = handleIntentMessage(room, {
   type: 'INTENT',
@@ -150,5 +150,18 @@ assert.equal(invalidSeat.ok, false);
 if (!invalidSeat.ok) {
   assert.equal(invalidSeat.reason, 'INVALID_PLAYER_ID');
 }
+
+
+
+const randomStartP1 = startRoom(openRoom('room-random-1'), () => 0.1);
+assert.equal(randomStartP1.lifecycle, 'started');
+assert.equal(randomStartP1.game.activePlayer, 'p1');
+
+const randomStartP2 = startRoom(openRoom('room-random-2'), () => 0.9);
+assert.equal(randomStartP2.lifecycle, 'started');
+assert.equal(randomStartP2.game.activePlayer, 'p2');
+
+const unchangedAfterStarted = startRoom(randomStartP1, () => 0.9);
+assert.equal(unchangedAfterStarted.game.activePlayer, 'p1');
 
 console.log('e2e-smoke: ok');
