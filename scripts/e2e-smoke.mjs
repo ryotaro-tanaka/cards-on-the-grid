@@ -134,14 +134,44 @@ const sync = handleResyncRequestMessage(room, {
   },
 });
 
-assert.equal(sync.outbound.length, 1);
-assert.equal(sync.outbound[0].type, 'SYNC');
-assert.equal(sync.outbound[0].payload.seq, room.seq);
+assert.equal(sync.outbound.length, 2);
+assert.equal(sync.outbound[0].type, 'EVENT');
+assert.equal(sync.outbound[1].type, 'EVENT');
 
 recovered = reduceIncoming(recovered, sync.outbound[0]);
+recovered = reduceIncoming(recovered, sync.outbound[1]);
 assert.equal(recovered.seq, 2);
 assert.equal(recovered.state?.turn, 3);
 assert.equal(recovered.state?.activePlayer, 'p1');
+
+
+
+const snapshotFallbackRoom = {
+  ...room,
+  seq: 120,
+  eventLog: [
+    {
+      seq: 100,
+      event: {
+        type: 'TurnEnded',
+        nextTurn: {
+          owner: 'p1',
+          turnNo: 100,
+        },
+      },
+    },
+  ],
+};
+
+const snapshotFallback = handleResyncRequestMessage(snapshotFallbackRoom, {
+  type: 'RESYNC_REQUEST',
+  payload: {
+    fromSeq: 1,
+  },
+});
+assert.equal(snapshotFallback.outbound.length, 1);
+assert.equal(snapshotFallback.outbound[0].type, 'SYNC');
+assert.equal(snapshotFallback.outbound[0].payload.seq, 120);
 
 const destroyed = handleAdminMessage(room, {
   type: 'ADMIN',

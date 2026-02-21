@@ -8,14 +8,9 @@ import {
   type PlayerId,
 } from '../../core/dist/index.js';
 
-export type RoomLifecycle = 'waiting' | 'started' | 'finished';
+const EVENT_LOG_LIMIT = 64;
 
-export type RoomState = {
-  roomId: string;
-  seq: number;
-  game: GameState;
-  lifecycle: RoomLifecycle;
-};
+export type RoomLifecycle = 'waiting' | 'started' | 'finished';
 
 export type ClientIntentEnvelope = {
   expectedTurn: number;
@@ -25,6 +20,14 @@ export type ClientIntentEnvelope = {
 export type SequencedEvent = {
   seq: number;
   event: Event;
+};
+
+export type RoomState = {
+  roomId: string;
+  seq: number;
+  game: GameState;
+  lifecycle: RoomLifecycle;
+  eventLog: SequencedEvent[];
 };
 
 export type AcceptedIntent = {
@@ -49,6 +52,7 @@ export function createRoomState(roomId: string): RoomState {
     seq: 0,
     game: createInitialState(),
     lifecycle: 'waiting',
+    eventLog: [],
   };
 }
 
@@ -83,6 +87,15 @@ export function markRoomFinished(room: RoomState): RoomState {
     ...room,
     lifecycle: 'finished',
   };
+}
+
+function appendEventLog(currentLog: SequencedEvent[], events: SequencedEvent[]): SequencedEvent[] {
+  const merged = [...currentLog, ...events];
+  if (merged.length <= EVENT_LOG_LIMIT) {
+    return merged;
+  }
+
+  return merged.slice(merged.length - EVENT_LOG_LIMIT);
 }
 
 export function handleClientIntent(
@@ -123,6 +136,7 @@ export function handleClientIntent(
     ...room,
     seq: room.seq + events.length,
     game: result.state,
+    eventLog: appendEventLog(room.eventLog, events),
   };
 
   return {

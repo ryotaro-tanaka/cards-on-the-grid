@@ -61,7 +61,7 @@ WebSocket:
 ### 3) 再同期
 
 - Request: `RESYNC_REQUEST`（クライアント → サーバー）
-- Response: `SYNC`（サーバー → クライアント）
+- Response: 可能なら欠番 `EVENT` を再送、履歴不足なら `SYNC`（スナップショット）
 
 ### 4) 管理操作
 
@@ -217,7 +217,7 @@ WebSocket:
 }
 ```
 
-### SYNC（Response）
+### SYNC（Response: 履歴不足時のスナップショット）
 
 ```json
 {
@@ -253,7 +253,9 @@ WebSocket:
 - 接続したら `HELLO`
 - `WELCOME` で初期化
 - `EVENT` は `seq` が連番のときのみ適用
-- 欠損検知時は `RESYNC_REQUEST` を送り、`SYNC` で state/seq を置換
+- 欠損検知時は `RESYNC_REQUEST` を送る
+- サーバーが履歴を保持していれば欠番 `EVENT` が返るため順次適用
+- 履歴不足時のみ `SYNC` で state/seq を置換
 
 ---
 

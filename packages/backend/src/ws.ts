@@ -166,6 +166,26 @@ export function handleResyncRequestMessage(
     return { room, outbound: [] };
   }
 
+  const oldestBufferedSeq = room.eventLog[0]?.seq ?? room.seq + 1;
+  const canReplayFromHistory = message.payload.fromSeq >= oldestBufferedSeq - 1;
+
+  if (canReplayFromHistory) {
+    const missingEvents = room.eventLog
+      .filter((item) => item.seq > message.payload.fromSeq)
+      .map((item) => ({
+        type: 'EVENT' as const,
+        payload: {
+          seq: item.seq,
+          event: item.event,
+        },
+      }));
+
+    return {
+      room,
+      outbound: missingEvents,
+    };
+  }
+
   return {
     room,
     outbound: [
