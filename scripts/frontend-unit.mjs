@@ -204,6 +204,7 @@ assert.equal(connectionStatuses[0], 'connecting');
 sockets[0].open();
 assert.equal(connectionStatuses[1], 'open');
 assert.equal(sockets[0].sent[0].type, 'HELLO');
+assert.equal(sockets[0].sent[0].payload.playerId, 'p1');
 
 sockets[0].receive('{"type":"UNKNOWN"}');
 assert.equal(invalidFrames.length, 1);
@@ -213,6 +214,23 @@ assert.equal(sockets.length, 2);
 assert.equal(connectionStatuses.at(-1), 'connecting');
 sockets[1].open();
 assert.equal(sockets[1].sent[0].type, 'HELLO');
+
+
+const autoSockets = [];
+const autoConnection = connect({
+  baseUrl: 'ws://localhost:8787',
+  roomId: 'room-1',
+  playerId: 'auto',
+  webSocketFactory: (url) => {
+    const socket = new FakeSocket(url);
+    autoSockets.push(socket);
+    return socket;
+  },
+});
+autoSockets[0].open();
+assert.equal(autoSockets[0].sent[0].type, 'HELLO');
+assert.equal(Object.hasOwn(autoSockets[0].sent[0].payload, 'playerId'), false);
+autoConnection.close();
 
 connection.close();
 assert.equal(connectionStatuses.at(-1), 'closed');

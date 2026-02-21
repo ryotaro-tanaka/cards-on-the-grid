@@ -11,7 +11,7 @@ import {
 export type HelloMessage = {
   type: 'HELLO';
   payload: {
-    playerId: PlayerId;
+    playerId?: string;
   };
 };
 
@@ -98,14 +98,22 @@ export type RejectReason = (typeof REJECT_REASONS)[number];
 
 export function confirmSeat(
   room: RoomState,
-  requestedPlayerId: string,
+  requestedPlayerId: string | undefined,
 ): { ok: true; playerId: PlayerId } | { ok: false; reason: 'INVALID_PLAYER_ID' } {
+  if (!requestedPlayerId) {
+    return { ok: false, reason: 'INVALID_PLAYER_ID' };
+  }
+
   const playerId = resolvePlayerId(room, requestedPlayerId);
   if (!playerId) {
     return { ok: false, reason: 'INVALID_PLAYER_ID' };
   }
 
   return { ok: true, playerId };
+}
+
+export function findOpenSeat(room: RoomState, seatedPlayerIds: ReadonlySet<PlayerId>): PlayerId | null {
+  return room.game.players.find((playerId) => !seatedPlayerIds.has(playerId)) ?? null;
 }
 
 export function openRoom(roomId: string): RoomState {

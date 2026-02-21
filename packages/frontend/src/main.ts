@@ -31,7 +31,8 @@ const renderer = createDomRenderer(root, {
 
 const params = new URLSearchParams(window.location.search);
 const roomId = params.get('roomId') ?? 'room-1';
-const playerId = params.get('playerId') === 'p2' ? 'p2' : 'p1';
+const rawPlayerId = params.get('playerId');
+const playerId = rawPlayerId === 'p1' || rawPlayerId === 'p2' ? rawPlayerId : 'auto';
 const name = params.get('name') ?? undefined;
 const wsBaseUrlFromQuery = params.get('wsBaseUrl') ?? undefined;
 

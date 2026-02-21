@@ -362,11 +362,11 @@ assert.equal(s1.sent.at(-1).payload.reason, 'SEAT_UNASSIGNED');
 const originalRandom = Math.random;
 Math.random = () => 0;
 
-s1.emitJson({ type: 'HELLO', payload: { playerId: 'p1' } });
+s1.emitJson({ type: 'HELLO', payload: {} });
 assert.equal(s1.sent.at(-1).type, 'WELCOME');
 assert.equal(s1.sent.at(-1).payload.roomStatus, 'waiting');
 
-s2.emitJson({ type: 'HELLO', payload: { playerId: 'p2' } });
+s2.emitJson({ type: 'HELLO', payload: {} });
 assert.equal(s1.sent.at(-1).type, 'WELCOME');
 assert.equal(s1.sent.at(-1).payload.roomStatus, 'started');
 assert.equal(s2.sent.at(-1).type, 'WELCOME');
@@ -377,7 +377,7 @@ Math.random = originalRandom;
 
 s3.emitJson({ type: 'HELLO', payload: { playerId: 'p3' } });
 assert.equal(s3.sent.at(-1).type, 'REJECT');
-assert.equal(s3.sent.at(-1).payload.reason, 'INVALID_PLAYER_ID');
+assert.equal(s3.sent.at(-1).payload.reason, 'ROOM_FULL');
 
 s1.emitJson({
   type: 'INTENT',
