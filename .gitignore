@@ -23,3 +23,5 @@ tasks/verify_report.json
 tasks/.verify_*.out
 tasks/.verify_*.err
 .pages-dist/
+
+!packages/frontend/.env.example

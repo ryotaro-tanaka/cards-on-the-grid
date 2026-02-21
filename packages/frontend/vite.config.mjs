@@ -7,7 +7,4 @@ export default defineConfig({
     outDir: resolve('.pages-dist'),
     emptyOutDir: true,
   },
-  define: {
-    __BACKEND_WS_BASE_URL__: JSON.stringify(process.env.BACKEND_WS_BASE_URL ?? ''),
-  },
 });
