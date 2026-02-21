@@ -1,5 +1,6 @@
+import type { Command, Coord } from '../../core/dist/index.js';
 import type { ClientState, RejectReason, RoomStatus } from './types.js';
-import { buildBoardViewModel, canAct, type BoardViewModel } from './ui.js';
+import { buildBoardViewModel, canAct, createEndTurnIntent, createMoveIntent, selectPiece, type BoardViewModel } from './ui.js';
 
 export type ViewModel = {
   roomLabel: string;
@@ -13,6 +14,15 @@ export type ViewModel = {
   selectedPieceId: string | null;
   board: BoardViewModel;
   errorMessage: string | null;
+};
+
+export type RenderCallbacks = {
+  onSendIntent: (command: Command, expectedTurn: number) => void;
+  onReconnect?: () => void;
+};
+
+export type DomRenderer = {
+  render: (state: ClientState) => void;
 };
 
 export function buildViewModel(state: ClientState, selectedPieceId: string | null): ViewModel {
@@ -125,4 +135,110 @@ function describeMatchResult(state: ClientState): string | null {
   }
 
   return `対戦終了: あなたの敗北 (winner: ${state.state.winner})`;
+}
+
+export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks): DomRenderer {
+  let selectedPieceId: string | null = null;
+
+  const render = (state: ClientState) => {
+    const viewModel = buildViewModel(state, selectedPieceId);
+    root.replaceChildren();
+
+    const title = document.createElement('h1');
+    title.textContent = 'Cards on the Grid';
+    root.appendChild(title);
+
+    root.appendChild(createTextElement('p', viewModel.roomLabel));
+    root.appendChild(createTextElement('p', viewModel.roomStatusLabel));
+    root.appendChild(createTextElement('p', viewModel.turnLabel));
+    root.appendChild(createTextElement('p', viewModel.connectionLabel));
+    root.appendChild(createTextElement('p', viewModel.actionAvailabilityMessage));
+
+    if (viewModel.matchResultMessage) {
+      root.appendChild(createTextElement('p', viewModel.matchResultMessage));
+    }
+
+    if (viewModel.errorMessage) {
+      const alert = createTextElement('p', viewModel.errorMessage);
+      alert.setAttribute('role', 'alert');
+      root.appendChild(alert);
+    }
+
+    const board = document.createElement('div');
+    board.style.display = 'grid';
+    board.style.gridTemplateColumns = `repeat(${viewModel.board.size}, minmax(44px, 1fr))`;
+    board.style.gap = '4px';
+    board.style.maxWidth = '420px';
+
+    for (const cell of viewModel.board.cells) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.disabled = !viewModel.canOperate;
+      button.style.minHeight = '44px';
+      button.style.border = cell.isSelected ? '2px solid #2563eb' : '1px solid #94a3b8';
+      button.style.backgroundColor = cell.piece ? (cell.isOwnPiece ? '#dbeafe' : '#fee2e2') : '#f8fafc';
+      button.textContent = cell.piece
+        ? `${cell.piece.owner}:${cell.piece.kind}(${cell.piece.currentHp})`
+        : `${cell.x},${cell.y}`;
+      button.addEventListener('click', () => {
+        if (cell.piece && cell.isOwnPiece) {
+          selectedPieceId = selectPiece(state, selectedPieceId, cell.piece.id);
+          render(state);
+          return;
+        }
+
+        const moveIntent = createMoveIntent(state, selectedPieceId, toCoord(cell.x, cell.y));
+        if (!moveIntent.ok) {
+          return;
+        }
+
+        callbacks.onSendIntent(moveIntent.message.payload.command, moveIntent.message.payload.expectedTurn);
+        selectedPieceId = moveIntent.nextSelectedPieceId;
+        render(state);
+      });
+      board.appendChild(button);
+    }
+
+    root.appendChild(board);
+
+    const actionRow = document.createElement('div');
+    actionRow.style.display = 'flex';
+    actionRow.style.gap = '8px';
+    actionRow.style.marginTop = '12px';
+
+    const endTurnButton = document.createElement('button');
+    endTurnButton.type = 'button';
+    endTurnButton.textContent = 'ターン終了';
+    endTurnButton.disabled = !viewModel.canEndTurn;
+    endTurnButton.addEventListener('click', () => {
+      const endTurnIntent = createEndTurnIntent(state);
+      if (!endTurnIntent.ok) {
+        return;
+      }
+
+      callbacks.onSendIntent(endTurnIntent.message.payload.command, endTurnIntent.message.payload.expectedTurn);
+    });
+    actionRow.appendChild(endTurnButton);
+
+    const reconnectButton = document.createElement('button');
+    reconnectButton.type = 'button';
+    reconnectButton.textContent = '再接続';
+    reconnectButton.disabled = !callbacks.onReconnect;
+    reconnectButton.addEventListener('click', () => callbacks.onReconnect?.());
+    actionRow.appendChild(reconnectButton);
+
+    root.appendChild(actionRow);
+  };
+
+  return { render };
+}
+
+function createTextElement(tagName: 'p', text: string): HTMLParagraphElement {
+  const element = document.createElement(tagName);
+  element.textContent = text;
+  return element;
+}
+
+function toCoord(x: number, y: number): Coord {
+  return { x, y };
 }
