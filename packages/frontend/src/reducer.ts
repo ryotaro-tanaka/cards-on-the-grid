@@ -4,6 +4,7 @@ import type { ClientAction, ClientState, IncomingMessage } from './types.js';
 export function createEmptyClientState(): ClientState {
   return {
     connectionStatus: 'closed',
+    isResyncing: false,
     roomId: null,
     roomStatus: null,
     you: null,
@@ -17,6 +18,7 @@ export function reduceIncoming(current: ClientState, message: IncomingMessage): 
   if (message.type === 'WELCOME') {
     return {
       ...current,
+      isResyncing: false,
       roomId: message.payload.roomId,
       roomStatus: message.payload.roomStatus,
       you: message.payload.you,
@@ -33,6 +35,7 @@ export function reduceIncoming(current: ClientState, message: IncomingMessage): 
 
     return {
       ...current,
+      isResyncing: false,
       roomStatus: message.payload.roomStatus,
       seq: message.payload.seq,
       state: message.payload.state,
@@ -57,6 +60,7 @@ export function reduceIncoming(current: ClientState, message: IncomingMessage): 
 
   return {
     ...current,
+    isResyncing: false,
     seq: message.payload.seq,
     state: applyEvent(current.state, message.payload.event),
     lastReject: null,
@@ -68,6 +72,13 @@ export function reduceClientState(current: ClientState, action: ClientAction): C
     return {
       ...current,
       connectionStatus: action.payload.status,
+    };
+  }
+
+  if (action.type === 'RESYNC_STATUS_CHANGED') {
+    return {
+      ...current,
+      isResyncing: action.payload.isResyncing,
     };
   }
 

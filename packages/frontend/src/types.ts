@@ -1,4 +1,4 @@
-import type { Event, GameState, PlayerId } from '../../core/dist/index.js';
+import type { Command, Event, GameState, PlayerId } from '../../core/dist/index.js';
 
 export type RoomStatus = 'waiting' | 'started' | 'finished';
 
@@ -50,8 +50,33 @@ export type IncomingMessage =
   | { type: 'SYNC'; payload: SyncPayload }
   | { type: 'REJECT'; payload: RejectPayload };
 
+export type HelloMessage = {
+  type: 'HELLO';
+  payload: {
+    playerId: PlayerId;
+  };
+};
+
+export type IntentMessage = {
+  type: 'INTENT';
+  payload: {
+    expectedTurn: number;
+    command: Command;
+  };
+};
+
+export type ResyncRequestMessage = {
+  type: 'RESYNC_REQUEST';
+  payload: {
+    fromSeq: number;
+  };
+};
+
+export type OutgoingMessage = HelloMessage | IntentMessage | ResyncRequestMessage;
+
 export type ClientState = {
   connectionStatus: ConnectionStatus;
+  isResyncing: boolean;
   roomId: string | null;
   roomStatus: RoomStatus | null;
   you: PlayerId | null;
@@ -62,4 +87,5 @@ export type ClientState = {
 
 export type ClientAction =
   | { type: 'CONNECTION_STATUS_CHANGED'; payload: { status: ConnectionStatus } }
+  | { type: 'RESYNC_STATUS_CHANGED'; payload: { isResyncing: boolean } }
   | { type: 'MESSAGE_RECEIVED'; payload: IncomingMessage };
