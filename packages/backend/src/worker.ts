@@ -1,12 +1,16 @@
 import {
+  confirmSeat,
+  createRejectMessage,
   createWelcomeMessage,
   handleAdminMessage,
   handleIntentMessage,
   handleResyncRequestMessage,
   openRoom,
+  startRoom,
   type ClientMessage,
   type ServerMessage,
 } from './ws.js';
+import type { PlayerId } from '../../core/dist/index.js';
 
 declare const WebSocketPair: {
   new (): { 0: WebSocket; 1: WebSocket };
@@ -72,12 +76,13 @@ export default {
 
 type RoomSocket = {
   socket: WebSocket;
-  playerId: string;
+  playerId: PlayerId | null;
 };
 
 export class RoomDO {
   private room = openRoom('uninitialized');
-  private sockets = new Set<RoomSocket>();
+  private allSockets = new Set<RoomSocket>();
+  private seatedSockets = new Map<PlayerId, RoomSocket>();
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -100,27 +105,29 @@ export class RoomDO {
     const client = pair[0] as AcceptableWebSocket;
     const server = pair[1] as AcceptableWebSocket;
 
-    this.handleConnection(server, url);
+    this.handleConnection(server);
 
     return new Response(null, { status: 101, webSocket: client } as WorkerResponseInit);
   }
 
-  private handleConnection(socket: AcceptableWebSocket, url: URL): void {
+  private handleConnection(socket: AcceptableWebSocket): void {
     socket.accept();
 
-    const playerId = url.searchParams.get('playerId') ?? `p${this.sockets.size + 1}`;
-    const entry: RoomSocket = { socket, playerId };
-    this.sockets.add(entry);
-
-    const welcome = createWelcomeMessage(this.room, playerId);
-    this.send(entry.socket, welcome);
+    const entry: RoomSocket = { socket, playerId: null };
+    this.allSockets.add(entry);
 
     socket.addEventListener('message', (event: MessageEvent<string>) => {
       this.onMessage(entry, event.data);
     });
 
     socket.addEventListener('close', () => {
-      this.sockets.delete(entry);
+      this.allSockets.delete(entry);
+      if (entry.playerId) {
+        const active = this.seatedSockets.get(entry.playerId);
+        if (active === entry) {
+          this.seatedSockets.delete(entry.playerId);
+        }
+      }
     });
   }
 
@@ -134,13 +141,17 @@ export class RoomDO {
     }
 
     if (message.type === 'HELLO') {
-      const welcome = createWelcomeMessage(this.room, entry.playerId);
-      this.send(entry.socket, welcome);
+      this.handleHelloMessage(entry, message.payload.playerId);
+      return;
+    }
+
+    if (!entry.playerId) {
+      this.send(entry.socket, createRejectMessage(this.room, 'SEAT_UNASSIGNED'));
       return;
     }
 
     if (message.type === 'INTENT') {
-      const result = handleIntentMessage(this.room, message);
+      const result = handleIntentMessage(this.room, entry.playerId, message);
       this.room = result.room;
       this.broadcast(result.outbound);
       return;
@@ -160,12 +171,56 @@ export class RoomDO {
     }
   }
 
+  private handleHelloMessage(entry: RoomSocket, requestedPlayerId: string): void {
+    const seat = confirmSeat(this.room, requestedPlayerId);
+    if (!seat.ok) {
+      this.send(entry.socket, createRejectMessage(this.room, seat.reason));
+      return;
+    }
+
+    if (entry.playerId) {
+      if (entry.playerId !== seat.playerId) {
+        this.send(entry.socket, createRejectMessage(this.room, 'INVALID_PLAYER_ID'));
+        return;
+      }
+
+      this.send(entry.socket, createWelcomeMessage(this.room, entry.playerId));
+      return;
+    }
+
+    const existing = this.seatedSockets.get(seat.playerId);
+    if (existing && existing !== entry) {
+      existing.socket.close(1000, 'RECONNECTED');
+      this.seatedSockets.delete(seat.playerId);
+    }
+
+    if (this.seatedSockets.size >= this.room.game.players.length) {
+      this.send(entry.socket, createRejectMessage(this.room, 'ROOM_FULL'));
+      entry.socket.close(1008, 'ROOM_FULL');
+      return;
+    }
+
+    entry.playerId = seat.playerId;
+    this.seatedSockets.set(seat.playerId, entry);
+
+    if (this.seatedSockets.size === this.room.game.players.length) {
+      this.room = startRoom(this.room);
+      for (const [playerId, peer] of this.seatedSockets.entries()) {
+        this.send(peer.socket, createWelcomeMessage(this.room, playerId));
+      }
+      return;
+    }
+
+    this.send(entry.socket, createWelcomeMessage(this.room, seat.playerId));
+  }
+
   private destroyRoom(): void {
-    for (const peer of this.sockets) {
+    for (const peer of this.allSockets) {
       peer.socket.close(1000, 'ROOM_DESTROYED');
     }
 
-    this.sockets.clear();
+    this.allSockets.clear();
+    this.seatedSockets.clear();
   }
 
   private send(socket: WebSocket, payload: ServerMessage | ServerMessage[]): void {
@@ -180,7 +235,7 @@ export class RoomDO {
   }
 
   private broadcast(messages: ServerMessage[]): void {
-    for (const peer of this.sockets) {
+    for (const peer of this.seatedSockets.values()) {
       this.send(peer.socket, messages);
     }
   }
