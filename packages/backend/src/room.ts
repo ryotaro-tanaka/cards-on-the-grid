@@ -8,10 +8,13 @@ import {
   type PlayerId,
 } from '../../core/dist/index.js';
 
+export type RoomLifecycle = 'waiting' | 'started' | 'finished';
+
 export type RoomState = {
   roomId: string;
   seq: number;
   game: GameState;
+  lifecycle: RoomLifecycle;
 };
 
 export type ClientIntentEnvelope = {
@@ -43,6 +46,7 @@ export function createRoomState(roomId: string): RoomState {
     roomId,
     seq: 0,
     game: createInitialState(),
+    lifecycle: 'waiting',
   };
 }
 
@@ -50,10 +54,40 @@ export function resolvePlayerId(room: RoomState, rawPlayerId: string): PlayerId 
   return room.game.players.find((playerId) => playerId === rawPlayerId) ?? null;
 }
 
+export function markRoomStarted(room: RoomState): RoomState {
+  if (room.lifecycle !== 'waiting') {
+    return room;
+  }
+
+  return {
+    ...room,
+    lifecycle: 'started',
+  };
+}
+
+export function markRoomFinished(room: RoomState): RoomState {
+  if (room.lifecycle === 'finished') {
+    return room;
+  }
+
+  return {
+    ...room,
+    lifecycle: 'finished',
+  };
+}
+
 export function handleClientIntent(
   room: RoomState,
   envelope: ClientIntentEnvelope,
 ): IntentHandlingResult {
+  if (room.lifecycle !== 'started') {
+    return {
+      ok: false,
+      room,
+      reason: 'PHASE_MISMATCH',
+    };
+  }
+
   if (envelope.expectedTurn !== room.game.turn) {
     return {
       ok: false,
@@ -76,13 +110,15 @@ export function handleClientIntent(
     event,
   }));
 
+  const nextRoom: RoomState = {
+    ...room,
+    seq: room.seq + events.length,
+    game: result.state,
+  };
+
   return {
     ok: true,
-    room: {
-      ...room,
-      seq: room.seq + events.length,
-      game: result.state,
-    },
+    room: result.state.status === 'Finished' ? markRoomFinished(nextRoom) : nextRoom,
     events,
   };
 }

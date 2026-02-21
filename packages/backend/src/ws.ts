@@ -2,6 +2,7 @@ import type { Command, Event, GameState, PlayerId } from '../../core/dist/index.
 import {
   createRoomState,
   handleClientIntent,
+  markRoomStarted,
   resolvePlayerId,
   type RejectedIntent,
   type RoomState,
@@ -45,6 +46,7 @@ export type WelcomeMessage = {
     you: PlayerId;
     seq: number;
     state: GameState;
+    roomStatus: RoomState['lifecycle'];
   };
 };
 
@@ -69,6 +71,7 @@ export type SyncMessage = {
   payload: {
     seq: number;
     state: GameState;
+    roomStatus: RoomState['lifecycle'];
   };
 };
 
@@ -92,6 +95,10 @@ export function openRoom(roomId: string): RoomState {
   return createRoomState(roomId);
 }
 
+export function startRoom(room: RoomState): RoomState {
+  return markRoomStarted(room);
+}
+
 export function createWelcomeMessage(room: RoomState, playerId: PlayerId): WelcomeMessage {
   return {
     type: 'WELCOME',
@@ -100,6 +107,7 @@ export function createWelcomeMessage(room: RoomState, playerId: PlayerId): Welco
       you: playerId,
       seq: room.seq,
       state: room.game,
+      roomStatus: room.lifecycle,
     },
   };
 }
@@ -158,6 +166,7 @@ export function handleResyncRequestMessage(
         payload: {
           seq: room.seq,
           state: room.game,
+          roomStatus: room.lifecycle,
         },
       },
     ],

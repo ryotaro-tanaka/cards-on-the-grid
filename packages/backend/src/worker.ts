@@ -6,6 +6,7 @@ import {
   handleIntentMessage,
   handleResyncRequestMessage,
   openRoom,
+  startRoom,
   type ClientMessage,
   type ServerMessage,
 } from './ws.js';
@@ -196,7 +197,6 @@ export class RoomDO {
     if (existing && existing !== entry) {
       existing.socket.close(1000, 'RECONNECTED');
       this.seatedSockets.delete(seat.playerId);
-      existing.playerId = null;
     }
 
     if (this.seatedSockets.size >= this.room.game.players.length) {
@@ -207,6 +207,15 @@ export class RoomDO {
 
     entry.playerId = seat.playerId;
     this.seatedSockets.set(seat.playerId, entry);
+
+    if (this.seatedSockets.size === this.room.game.players.length) {
+      this.room = startRoom(this.room);
+      for (const [playerId, peer] of this.seatedSockets.entries()) {
+        this.send(peer.socket, createWelcomeMessage(this.room, playerId));
+      }
+      return;
+    }
+
     this.send(entry.socket, createWelcomeMessage(this.room, seat.playerId));
   }
 

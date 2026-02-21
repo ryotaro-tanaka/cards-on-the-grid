@@ -6,6 +6,7 @@ import {
   handleResyncRequestMessage,
   handleAdminMessage,
   confirmSeat,
+  startRoom,
 } from '../packages/backend/dist/index.js';
 import {
   createEmptyClientState,
@@ -21,6 +22,21 @@ client = reduceIncoming(client, welcome);
 assert.equal(client.seq, 0);
 assert.equal(client.state?.turn, 1);
 assert.equal(client.state?.activePlayer, 'p1');
+
+const beforeStart = handleIntentMessage(room, {
+  type: 'INTENT',
+  payload: {
+    expectedTurn: 1,
+    command: {
+      actorPlayerId: 'p1',
+      intent: { type: 'EndTurn' },
+    },
+  },
+});
+assert.equal(beforeStart.outbound[0].type, 'REJECT');
+assert.equal(beforeStart.outbound[0].payload.reason, 'PHASE_MISMATCH');
+
+room = startRoom(room);
 
 const accepted = handleIntentMessage(room, {
   type: 'INTENT',
