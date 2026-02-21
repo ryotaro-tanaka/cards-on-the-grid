@@ -5,7 +5,7 @@ import {
   handleIntentMessage,
   handleResyncRequestMessage,
   handleAdminMessage,
-  selectPlayerForConnection,
+  confirmSeat,
 } from '../packages/backend/dist/index.js';
 import {
   createEmptyClientState,
@@ -123,31 +123,16 @@ assert.equal(destroyed.room.roomId, 'uninitialized');
 assert.equal(destroyed.room.seq, 0);
 assert.equal(destroyed.room.game.turn, 1);
 
-const joinP1 = selectPlayerForConnection(room, 'p1', new Set());
-assert.equal(joinP1.ok, true);
-if (joinP1.ok) {
-  assert.equal(joinP1.playerId, 'p1');
-  assert.equal(joinP1.replacesExisting, false);
+const validSeat = confirmSeat(room, 'p1');
+assert.equal(validSeat.ok, true);
+if (validSeat.ok) {
+  assert.equal(validSeat.playerId, 'p1');
 }
 
-const joinP2 = selectPlayerForConnection(room, null, new Set(['p1']));
-assert.equal(joinP2.ok, true);
-if (joinP2.ok) {
-  assert.equal(joinP2.playerId, 'p2');
-  assert.equal(joinP2.replacesExisting, false);
-}
-
-const reconnectP1 = selectPlayerForConnection(room, 'p1', new Set(['p1', 'p2']));
-assert.equal(reconnectP1.ok, true);
-if (reconnectP1.ok) {
-  assert.equal(reconnectP1.playerId, 'p1');
-  assert.equal(reconnectP1.replacesExisting, true);
-}
-
-const roomFull = selectPlayerForConnection(room, null, new Set(['p1', 'p2']));
-assert.equal(roomFull.ok, false);
-if (!roomFull.ok) {
-  assert.equal(roomFull.reason, 'ROOM_FULL');
+const invalidSeat = confirmSeat(room, 'p3');
+assert.equal(invalidSeat.ok, false);
+if (!invalidSeat.ok) {
+  assert.equal(invalidSeat.reason, 'INVALID_PLAYER_ID');
 }
 
 console.log('e2e-smoke: ok');

@@ -1,5 +1,11 @@
 import type { Command, Event, GameState, PlayerId } from '../../core/dist/index.js';
-import { createRoomState, handleClientIntent, type RejectedIntent, type RoomState } from './room.js';
+import {
+  createRoomState,
+  handleClientIntent,
+  resolvePlayerId,
+  type RejectedIntent,
+  type RoomState,
+} from './room.js';
 
 export type HelloMessage = {
   type: 'HELLO';
@@ -68,39 +74,18 @@ export type SyncMessage = {
 
 export type ServerMessage = WelcomeMessage | EventMessage | RejectMessage | SyncMessage;
 
-export type RejectReason = RejectedIntent['reason'] | 'ROOM_FULL';
+export type RejectReason = RejectedIntent['reason'] | 'ROOM_FULL' | 'SEAT_UNASSIGNED' | 'INVALID_PLAYER_ID';
 
-export function selectPlayerForConnection(
+export function confirmSeat(
   room: RoomState,
-  requestedPlayerId: string | null,
-  activePlayerIds: ReadonlySet<PlayerId>,
-): { ok: true; playerId: PlayerId; replacesExisting: boolean } | { ok: false; reason: 'ROOM_FULL' } {
-  const players = room.game.players;
-
-  const normalizedRequested = players.find((playerId) => playerId === requestedPlayerId) ?? null;
-
-  if (normalizedRequested) {
-    return {
-      ok: true,
-      playerId: normalizedRequested,
-      replacesExisting: activePlayerIds.has(normalizedRequested),
-    };
+  requestedPlayerId: string,
+): { ok: true; playerId: PlayerId } | { ok: false; reason: 'INVALID_PLAYER_ID' } {
+  const playerId = resolvePlayerId(room, requestedPlayerId);
+  if (!playerId) {
+    return { ok: false, reason: 'INVALID_PLAYER_ID' };
   }
 
-  const availablePlayerId = players.find((playerId) => !activePlayerIds.has(playerId));
-
-  if (!availablePlayerId) {
-    return {
-      ok: false,
-      reason: 'ROOM_FULL',
-    };
-  }
-
-  return {
-    ok: true,
-    playerId: availablePlayerId,
-    replacesExisting: false,
-  };
+  return { ok: true, playerId };
 }
 
 export function openRoom(roomId: string): RoomState {
@@ -141,9 +126,7 @@ export function handleIntentMessage(
   if (!result.ok) {
     return {
       room,
-      outbound: [
-        createRejectMessage(room, result.reason),
-      ],
+      outbound: [createRejectMessage(room, result.reason)],
     };
   }
 

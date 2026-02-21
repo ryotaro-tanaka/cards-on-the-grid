@@ -5,6 +5,7 @@ import {
   type Event,
   type GameState,
   type InvalidReason,
+  type PlayerId,
 } from '../../core/dist/index.js';
 
 export type RoomState = {
@@ -43,6 +44,10 @@ export function createRoomState(roomId: string): RoomState {
     seq: 0,
     game: createInitialState(),
   };
+}
+
+export function resolvePlayerId(room: RoomState, rawPlayerId: string): PlayerId | null {
+  return room.game.players.find((playerId) => playerId === rawPlayerId) ?? null;
 }
 
 export function handleClientIntent(
