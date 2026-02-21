@@ -85,7 +85,7 @@ const indexHtml = `<!doctype html>
     </script>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">Hello world</div>
   </body>
 </html>
 `;
