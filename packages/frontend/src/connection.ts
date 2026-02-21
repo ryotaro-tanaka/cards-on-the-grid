@@ -90,11 +90,6 @@ export function resolveWebSocketBaseUrl(options: ResolveWebSocketBaseUrlOptions)
   if (options.configuredBaseUrl) {
     return options.configuredBaseUrl;
   }
-
-  if (options.locationHostname.endsWith('.pages.dev')) {
-    return '';
-  }
-
   return options.locationOrigin.replace(/^http/, 'ws');
 }
 
