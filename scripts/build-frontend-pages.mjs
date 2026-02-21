@@ -24,7 +24,7 @@ const indexHtml = `<!doctype html>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cards on the Grid</title>
-    <script src="/app-config.js"></script>
+    <script src="./app-config.js"></script>
     <script type="module">
       import {
         connect,
@@ -33,7 +33,7 @@ const indexHtml = `<!doctype html>
         reduceClientState,
         attachPwaMetadata,
         registerServiceWorker,
-      } from '/packages/frontend/dist/index.js';
+      } from './packages/frontend/dist/index.js';
 
       attachPwaMetadata(document.head);
       registerServiceWorker();
@@ -85,7 +85,7 @@ const indexHtml = `<!doctype html>
     </script>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">Hello world</div>
   </body>
 </html>
 `;
