@@ -50,6 +50,13 @@ export type FrontendConnection = {
   close: () => void;
 };
 
+export type ResolveWebSocketBaseUrlOptions = {
+  configuredBaseUrl: string;
+  locationOrigin: string;
+  locationHostname: string;
+  queryBaseUrl?: string;
+};
+
 export function toConnectionStatus(socket: ReadyStateCarrier): ConnectionStatus {
   if (socket.readyState === WebSocket.OPEN) {
     return 'open';
@@ -73,6 +80,22 @@ export function createRoomWebSocketUrl(baseUrl: string, roomId: string, name?: s
 
   const query = params.toString();
   return `${normalized}/ws/rooms/${encodedRoomId}${query ? `?${query}` : ''}`;
+}
+
+export function resolveWebSocketBaseUrl(options: ResolveWebSocketBaseUrlOptions): string {
+  if (options.queryBaseUrl) {
+    return options.queryBaseUrl;
+  }
+
+  if (options.configuredBaseUrl) {
+    return options.configuredBaseUrl;
+  }
+
+  if (options.locationHostname.endsWith('.pages.dev')) {
+    return '';
+  }
+
+  return options.locationOrigin.replace(/^http/, 'ws');
 }
 
 export function connect(options: ConnectOptions): FrontendConnection {
