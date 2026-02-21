@@ -26,11 +26,11 @@ Worker(backend) と Pages(frontend) は Cloudflare 上では別デプロイ単�
 
 ### 任意環境変数
 
-- `BACKEND_WS_BASE_URL`: frontend の WebSocket 接続先（Cloudflare Pages 配信時は実質必須）
+- `BACKEND_WS_BASE_URL`: frontend の WebSocket 接続先（未設定時は現在のページURLを元に自動推定）
 - `CLOUDFLARE_PAGES_BRANCH`: `wrangler pages deploy` の `--branch` に渡す値
 
 ### WebSocket 接続先について
 
 - Cloudflare Pages (`*.pages.dev`) は静的配信のため、`/ws/...` に接続しても Worker に到達せず WebSocket handshake が失敗します。
-- 本frontendは `*.pages.dev` 上で `BACKEND_WS_BASE_URL` が未設定の場合、誤接続を避けるため接続を開始しません。
+- 本frontendは `BACKEND_WS_BASE_URL` が未設定の場合、現在のページURLを `ws://` / `wss://` へ変換した接続先を使用します。
 - 一時的にブラウザから切り替える場合は `?wsBaseUrl=wss://<backend-domain>` をURLに付与してください。

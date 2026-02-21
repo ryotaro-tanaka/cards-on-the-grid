@@ -41,7 +41,7 @@ assert.equal(
     locationOrigin: 'https://e1521436.cards-on-the-grid-frontend.pages.dev',
     locationHostname: 'e1521436.cards-on-the-grid-frontend.pages.dev',
   }),
-  '',
+  'wss://e1521436.cards-on-the-grid-frontend.pages.dev',
 );
 assert.equal(
   resolveWebSocketBaseUrl({
