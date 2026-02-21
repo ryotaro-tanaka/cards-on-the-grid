@@ -8,7 +8,8 @@
     "typecheck": "tsc -b",
     "clean": "rm -rf packages/*/dist",
     "e2e:smoke": "npm run typecheck && node --experimental-specifier-resolution=node scripts/e2e-smoke.mjs",
-    "test:core": "npm run typecheck && node --experimental-specifier-resolution=node scripts/core-unit.mjs"
+    "test:core": "npm run typecheck && node --experimental-specifier-resolution=node scripts/core-unit.mjs",
+    "test:frontend": "npm run typecheck && node --experimental-specifier-resolution=node scripts/frontend-unit.mjs"
   },
   "devDependencies": {
     "typescript": "^5.0.0"
