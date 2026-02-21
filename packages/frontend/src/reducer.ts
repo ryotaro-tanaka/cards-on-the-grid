@@ -1,48 +1,30 @@
-import { applyEvent, type Event, type GameState, type PlayerId } from '../../core/dist/index.js';
-
-export type WelcomePayload = {
-  roomId: string;
-  you: PlayerId;
-  seq: number;
-  state: GameState;
-};
-
-export type EventPayload = {
-  seq: number;
-  event: Event;
-};
-
-export type ClientState = {
-  roomId: string | null;
-  you: PlayerId | null;
-  seq: number;
-  state: GameState | null;
-};
-
-export type IncomingMessage =
-  | { type: 'WELCOME'; payload: WelcomePayload }
-  | { type: 'EVENT'; payload: EventPayload }
-  | { type: 'SYNC'; payload: { seq: number; state: GameState } };
+import { applyEvent } from '../../core/dist/index.js';
+import type { ClientAction, ClientState, IncomingMessage } from './types.js';
 
 export function createEmptyClientState(): ClientState {
   return {
+    connectionStatus: 'closed',
+    isResyncing: false,
     roomId: null,
+    roomStatus: null,
     you: null,
     seq: 0,
     state: null,
+    lastReject: null,
   };
 }
 
-export function reduceIncoming(
-  current: ClientState,
-  message: IncomingMessage,
-): ClientState {
+export function reduceIncoming(current: ClientState, message: IncomingMessage): ClientState {
   if (message.type === 'WELCOME') {
     return {
+      ...current,
+      isResyncing: false,
       roomId: message.payload.roomId,
+      roomStatus: message.payload.roomStatus,
       you: message.payload.you,
       seq: message.payload.seq,
       state: message.payload.state,
+      lastReject: null,
     };
   }
 
@@ -53,8 +35,18 @@ export function reduceIncoming(
 
     return {
       ...current,
+      isResyncing: false,
+      roomStatus: message.payload.roomStatus,
       seq: message.payload.seq,
       state: message.payload.state,
+      lastReject: null,
+    };
+  }
+
+  if (message.type === 'REJECT') {
+    return {
+      ...current,
+      lastReject: message.payload,
     };
   }
 
@@ -68,7 +60,27 @@ export function reduceIncoming(
 
   return {
     ...current,
+    isResyncing: false,
     seq: message.payload.seq,
     state: applyEvent(current.state, message.payload.event),
+    lastReject: null,
   };
+}
+
+export function reduceClientState(current: ClientState, action: ClientAction): ClientState {
+  if (action.type === 'CONNECTION_STATUS_CHANGED') {
+    return {
+      ...current,
+      connectionStatus: action.payload.status,
+    };
+  }
+
+  if (action.type === 'RESYNC_STATUS_CHANGED') {
+    return {
+      ...current,
+      isResyncing: action.payload.isResyncing,
+    };
+  }
+
+  return reduceIncoming(current, action.payload);
 }
