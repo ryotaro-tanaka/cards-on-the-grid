@@ -23,7 +23,7 @@ assert.equal(client.seq, 0);
 assert.equal(client.state?.turn, 1);
 assert.equal(client.state?.activePlayer, 'p1');
 
-const beforeStart = handleIntentMessage(room, {
+const beforeStart = handleIntentMessage(room, 'p1', {
   type: 'INTENT',
   payload: {
     expectedTurn: 1,
@@ -38,7 +38,7 @@ assert.equal(beforeStart.outbound[0].payload.reason, 'PHASE_MISMATCH');
 
 room = startRoom(room, () => 0);
 
-const accepted = handleIntentMessage(room, {
+const accepted = handleIntentMessage(room, 'p1', {
   type: 'INTENT',
   payload: {
     expectedTurn: 1,
@@ -59,7 +59,7 @@ assert.equal(client.seq, 1);
 assert.equal(client.state?.turn, 2);
 assert.equal(client.state?.activePlayer, 'p2');
 
-const staleTurn = handleIntentMessage(room, {
+const staleTurn = handleIntentMessage(room, 'p1', {
   type: 'INTENT',
   payload: {
     expectedTurn: 1,
@@ -73,7 +73,7 @@ const staleTurn = handleIntentMessage(room, {
 assert.equal(staleTurn.outbound[0].type, 'REJECT');
 assert.equal(staleTurn.outbound[0].payload.reason, 'TURN_MISMATCH');
 
-const wrongActor = handleIntentMessage(room, {
+const wrongActor = handleIntentMessage(room, 'p2', {
   type: 'INTENT',
   payload: {
     expectedTurn: 2,
@@ -85,13 +85,29 @@ const wrongActor = handleIntentMessage(room, {
 });
 
 assert.equal(wrongActor.outbound[0].type, 'REJECT');
-assert.equal(wrongActor.outbound[0].payload.reason, 'NOT_ACTIVE_PLAYER');
+assert.equal(wrongActor.outbound[0].payload.reason, 'INVALID_PLAYER_ID');
+assert.equal(wrongActor.room.seq, room.seq);
+
+
+const wrongActorAndTurn = handleIntentMessage(room, 'p2', {
+  type: 'INTENT',
+  payload: {
+    expectedTurn: 1,
+    command: {
+      actorPlayerId: 'p1',
+      intent: { type: 'EndTurn' },
+    },
+  },
+});
+assert.equal(wrongActorAndTurn.outbound[0].type, 'REJECT');
+assert.equal(wrongActorAndTurn.outbound[0].payload.reason, 'INVALID_PLAYER_ID');
+assert.equal(wrongActorAndTurn.room.seq, room.seq);
 
 const clientWithGap = createEmptyClientState();
 let recovered = reduceIncoming(clientWithGap, welcome);
 
 // seq=1 のEVENTを意図的に落とす
-const accepted2 = handleIntentMessage(room, {
+const accepted2 = handleIntentMessage(room, 'p2', {
   type: 'INTENT',
   payload: {
     expectedTurn: 2,

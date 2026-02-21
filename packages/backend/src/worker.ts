@@ -151,12 +151,7 @@ export class RoomDO {
     }
 
     if (message.type === 'INTENT') {
-      if (message.payload.command.actorPlayerId !== entry.playerId) {
-        this.send(entry.socket, createRejectMessage(this.room, 'INVALID_PLAYER_ID'));
-        return;
-      }
-
-      const result = handleIntentMessage(this.room, message);
+      const result = handleIntentMessage(this.room, entry.playerId, message);
       this.room = result.room;
       this.broadcast(result.outbound);
       return;

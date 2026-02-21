@@ -124,8 +124,16 @@ export function createRejectMessage(room: RoomState, reason: RejectReason): Reje
 
 export function handleIntentMessage(
   room: RoomState,
+  connectionPlayerId: PlayerId,
   message: IntentMessage,
 ): { room: RoomState; outbound: ServerMessage[] } {
+  if (message.payload.command.actorPlayerId !== connectionPlayerId) {
+    return {
+      room,
+      outbound: [createRejectMessage(room, 'INVALID_PLAYER_ID')],
+    };
+  }
+
   const result = handleClientIntent(room, {
     expectedTurn: message.payload.expectedTurn,
     command: message.payload.command,
