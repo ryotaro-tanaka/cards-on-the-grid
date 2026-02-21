@@ -19,7 +19,10 @@ WebSocket:
 
 ※ playerId は固定文字列でもOK（例: p1 / p2）
 ※ name は表示名用（任意）
-※ 実装上、プレイヤー識別は接続URLの `playerId` クエリを使用する（`HELLO.payload.playerId` は現状ルーティングには未使用）。
+※ `HELLO.payload.playerId` で seat（`p1` / `p2`）を確定する。
+※ 接続URLの `playerId` クエリは任意で、seat確定には使用しない。
+※ 同一 `playerId` の再接続は許可され、既存接続は `RECONNECTED` として切断される。
+※ seat未確定の接続からの `INTENT` は `REJECT(reason=SEAT_UNASSIGNED)`。
 
 ---
 
@@ -36,11 +39,18 @@ WebSocket:
 
 ## メッセージフロー（リクエスト/レスポンス）
 
+### 0) ルーム状態遷移
+
+- `waiting`: 0〜1人がseat確定している状態
+- `started`: 2人のseatが確定し、先手がランダム決定された状態（この時点から `INTENT` を受理）
+- `finished`: 終局後状態
+
 ### 1) 入室・初期同期
 
-- 接続直後: `WELCOME`（サーバー → クライアント）
 - Request: `HELLO`（クライアント → サーバー）
-- Response: `WELCOME`（サーバー → クライアント、再送）
+- Response: `WELCOME`（サーバー → クライアント）
+- `HELLO` は同一接続で再送しても冪等（同じseatなら `WELCOME` 再送）
+- 2人のseatが揃うと、`WELCOME.payload.roomStatus=started` とランダム決定された `state.activePlayer` が反映される
 
 ### 2) ゲーム操作
 
@@ -51,7 +61,7 @@ WebSocket:
 ### 3) 再同期
 
 - Request: `RESYNC_REQUEST`（クライアント → サーバー）
-- Response: `SYNC`（サーバー → クライアント）
+- Response: 可能なら欠番 `EVENT` を再送、履歴不足なら `SYNC`（スナップショット）
 
 ### 4) 管理操作
 
@@ -91,7 +101,8 @@ WebSocket:
         { "id": "p1_1", "owner": "p1", "position": { "x": 0, "y": 0 } },
         { "id": "p2_1", "owner": "p2", "position": { "x": 6, "y": 6 } }
       ]
-    }
+    },
+    "roomStatus": "waiting"
   }
 }
 ```
@@ -191,6 +202,9 @@ WebSocket:
 - `SAME_POSITION`
 - `CELL_OCCUPIED`
 - `MOVE_ALREADY_USED_THIS_TURN`
+- `ROOM_FULL`
+- `SEAT_UNASSIGNED`
+- `INVALID_PLAYER_ID`
 
 ### RESYNC_REQUEST（Request）
 
@@ -203,7 +217,7 @@ WebSocket:
 }
 ```
 
-### SYNC（Response）
+### SYNC（Response: 履歴不足時のスナップショット）
 
 ```json
 {
@@ -215,7 +229,8 @@ WebSocket:
       "players": ["p1", "p2"],
       "activePlayer": "p1",
       "pieces": []
-    }
+    },
+    "roomStatus": "started"
   }
 }
 ```
@@ -238,7 +253,9 @@ WebSocket:
 - 接続したら `HELLO`
 - `WELCOME` で初期化
 - `EVENT` は `seq` が連番のときのみ適用
-- 欠損検知時は `RESYNC_REQUEST` を送り、`SYNC` で state/seq を置換
+- 欠損検知時は `RESYNC_REQUEST` を送る
+- サーバーが履歴を保持していれば欠番 `EVENT` が返るため順次適用
+- 履歴不足時のみ `SYNC` で state/seq を置換
 
 ---
 

@@ -5,6 +5,8 @@ import {
   handleIntentMessage,
   handleResyncRequestMessage,
   handleAdminMessage,
+  confirmSeat,
+  startRoom,
 } from '../packages/backend/dist/index.js';
 import {
   createEmptyClientState,
@@ -21,7 +23,22 @@ assert.equal(client.seq, 0);
 assert.equal(client.state?.turn, 1);
 assert.equal(client.state?.activePlayer, 'p1');
 
-const accepted = handleIntentMessage(room, {
+const beforeStart = handleIntentMessage(room, 'p1', {
+  type: 'INTENT',
+  payload: {
+    expectedTurn: 1,
+    command: {
+      actorPlayerId: 'p1',
+      intent: { type: 'EndTurn' },
+    },
+  },
+});
+assert.equal(beforeStart.outbound[0].type, 'REJECT');
+assert.equal(beforeStart.outbound[0].payload.reason, 'PHASE_MISMATCH');
+
+room = startRoom(room, () => 0);
+
+const accepted = handleIntentMessage(room, 'p1', {
   type: 'INTENT',
   payload: {
     expectedTurn: 1,
@@ -42,7 +59,7 @@ assert.equal(client.seq, 1);
 assert.equal(client.state?.turn, 2);
 assert.equal(client.state?.activePlayer, 'p2');
 
-const staleTurn = handleIntentMessage(room, {
+const staleTurn = handleIntentMessage(room, 'p1', {
   type: 'INTENT',
   payload: {
     expectedTurn: 1,
@@ -56,7 +73,7 @@ const staleTurn = handleIntentMessage(room, {
 assert.equal(staleTurn.outbound[0].type, 'REJECT');
 assert.equal(staleTurn.outbound[0].payload.reason, 'TURN_MISMATCH');
 
-const wrongActor = handleIntentMessage(room, {
+const wrongActor = handleIntentMessage(room, 'p2', {
   type: 'INTENT',
   payload: {
     expectedTurn: 2,
@@ -68,13 +85,29 @@ const wrongActor = handleIntentMessage(room, {
 });
 
 assert.equal(wrongActor.outbound[0].type, 'REJECT');
-assert.equal(wrongActor.outbound[0].payload.reason, 'NOT_ACTIVE_PLAYER');
+assert.equal(wrongActor.outbound[0].payload.reason, 'INVALID_PLAYER_ID');
+assert.equal(wrongActor.room.seq, room.seq);
+
+
+const wrongActorAndTurn = handleIntentMessage(room, 'p2', {
+  type: 'INTENT',
+  payload: {
+    expectedTurn: 1,
+    command: {
+      actorPlayerId: 'p1',
+      intent: { type: 'EndTurn' },
+    },
+  },
+});
+assert.equal(wrongActorAndTurn.outbound[0].type, 'REJECT');
+assert.equal(wrongActorAndTurn.outbound[0].payload.reason, 'INVALID_PLAYER_ID');
+assert.equal(wrongActorAndTurn.room.seq, room.seq);
 
 const clientWithGap = createEmptyClientState();
 let recovered = reduceIncoming(clientWithGap, welcome);
 
 // seq=1 のEVENTを意図的に落とす
-const accepted2 = handleIntentMessage(room, {
+const accepted2 = handleIntentMessage(room, 'p2', {
   type: 'INTENT',
   payload: {
     expectedTurn: 2,
@@ -101,15 +134,44 @@ const sync = handleResyncRequestMessage(room, {
   },
 });
 
-assert.equal(sync.outbound.length, 1);
-assert.equal(sync.outbound[0].type, 'SYNC');
-assert.equal(sync.outbound[0].payload.seq, room.seq);
+assert.equal(sync.outbound.length, 2);
+assert.equal(sync.outbound[0].type, 'EVENT');
+assert.equal(sync.outbound[1].type, 'EVENT');
 
 recovered = reduceIncoming(recovered, sync.outbound[0]);
+recovered = reduceIncoming(recovered, sync.outbound[1]);
 assert.equal(recovered.seq, 2);
 assert.equal(recovered.state?.turn, 3);
 assert.equal(recovered.state?.activePlayer, 'p1');
 
+
+
+const snapshotFallbackRoom = {
+  ...room,
+  seq: 120,
+  eventLog: [
+    {
+      seq: 100,
+      event: {
+        type: 'TurnEnded',
+        nextTurn: {
+          owner: 'p1',
+          turnNo: 100,
+        },
+      },
+    },
+  ],
+};
+
+const snapshotFallback = handleResyncRequestMessage(snapshotFallbackRoom, {
+  type: 'RESYNC_REQUEST',
+  payload: {
+    fromSeq: 1,
+  },
+});
+assert.equal(snapshotFallback.outbound.length, 1);
+assert.equal(snapshotFallback.outbound[0].type, 'SYNC');
+assert.equal(snapshotFallback.outbound[0].payload.seq, 120);
 
 const destroyed = handleAdminMessage(room, {
   type: 'ADMIN',
@@ -122,5 +184,30 @@ assert.equal(destroyed.outbound.length, 0);
 assert.equal(destroyed.room.roomId, 'uninitialized');
 assert.equal(destroyed.room.seq, 0);
 assert.equal(destroyed.room.game.turn, 1);
+
+const validSeat = confirmSeat(room, 'p1');
+assert.equal(validSeat.ok, true);
+if (validSeat.ok) {
+  assert.equal(validSeat.playerId, 'p1');
+}
+
+const invalidSeat = confirmSeat(room, 'p3');
+assert.equal(invalidSeat.ok, false);
+if (!invalidSeat.ok) {
+  assert.equal(invalidSeat.reason, 'INVALID_PLAYER_ID');
+}
+
+
+
+const randomStartP1 = startRoom(openRoom('room-random-1'), () => 0.1);
+assert.equal(randomStartP1.lifecycle, 'started');
+assert.equal(randomStartP1.game.activePlayer, 'p1');
+
+const randomStartP2 = startRoom(openRoom('room-random-2'), () => 0.9);
+assert.equal(randomStartP2.lifecycle, 'started');
+assert.equal(randomStartP2.game.activePlayer, 'p2');
+
+const unchangedAfterStarted = startRoom(randomStartP1, () => 0.9);
+assert.equal(unchangedAfterStarted.game.activePlayer, 'p1');
 
 console.log('e2e-smoke: ok');
