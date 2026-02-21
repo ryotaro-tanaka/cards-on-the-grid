@@ -34,3 +34,10 @@ Worker(backend) と Pages(frontend) は Cloudflare 上では別デプロイ単�
 - Cloudflare Pages (`*.pages.dev`) は静的配信のため、`/ws/...` に接続しても Worker に到達せず WebSocket handshake が失敗します。
 - 本frontendは `*.pages.dev` 上で `VITE_BACKEND_WS_BASE_URL` が未設定の場合、誤接続を避けるため接続を開始しません。
 - 一時的にブラウザから切り替える場合は `?wsBaseUrl=wss://<backend-domain>` をURLに付与してください。
+
+
+### 入室時のseat割り当て
+
+- `HELLO.payload.playerId` を省略すると、空席を `p1` → `p2` の順で自動割り当てします。
+- `playerId` を指定した場合は、そのseatへの接続を試みます（同seat再接続を許可）。
+

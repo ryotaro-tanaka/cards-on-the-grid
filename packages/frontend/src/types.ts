@@ -53,7 +53,7 @@ export type IncomingMessage =
 export type HelloMessage = {
   type: 'HELLO';
   payload: {
-    playerId: PlayerId;
+    playerId?: PlayerId;
   };
 };
 

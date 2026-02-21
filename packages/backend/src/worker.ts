@@ -1,5 +1,6 @@
 import {
   confirmSeat,
+  findOpenSeat,
   createRejectMessage,
   createWelcomeMessage,
   handleAdminMessage,
@@ -171,15 +172,20 @@ export class RoomDO {
     }
   }
 
-  private handleHelloMessage(entry: RoomSocket, requestedPlayerId: string): void {
-    const seat = confirmSeat(this.room, requestedPlayerId);
-    if (!seat.ok) {
-      this.send(entry.socket, createRejectMessage(this.room, seat.reason));
+  private handleHelloMessage(entry: RoomSocket, requestedPlayerId: string | undefined): void {
+    const requestedSeat = confirmSeat(this.room, requestedPlayerId);
+    const seatPlayerId = requestedSeat.ok
+      ? requestedSeat.playerId
+      : findOpenSeat(this.room, new Set(this.seatedSockets.keys()));
+
+    if (!seatPlayerId) {
+      this.send(entry.socket, createRejectMessage(this.room, 'ROOM_FULL'));
+      entry.socket.close(1008, 'ROOM_FULL');
       return;
     }
 
     if (entry.playerId) {
-      if (entry.playerId !== seat.playerId) {
+      if (entry.playerId !== seatPlayerId) {
         this.send(entry.socket, createRejectMessage(this.room, 'INVALID_PLAYER_ID'));
         return;
       }
@@ -188,10 +194,10 @@ export class RoomDO {
       return;
     }
 
-    const existing = this.seatedSockets.get(seat.playerId);
+    const existing = this.seatedSockets.get(seatPlayerId);
     if (existing && existing !== entry) {
       existing.socket.close(1000, 'RECONNECTED');
-      this.seatedSockets.delete(seat.playerId);
+      this.seatedSockets.delete(seatPlayerId);
     }
 
     if (this.seatedSockets.size >= this.room.game.players.length) {
@@ -200,8 +206,8 @@ export class RoomDO {
       return;
     }
 
-    entry.playerId = seat.playerId;
-    this.seatedSockets.set(seat.playerId, entry);
+    entry.playerId = seatPlayerId;
+    this.seatedSockets.set(seatPlayerId, entry);
 
     if (this.seatedSockets.size === this.room.game.players.length) {
       this.room = startRoom(this.room);
@@ -211,7 +217,7 @@ export class RoomDO {
       return;
     }
 
-    this.send(entry.socket, createWelcomeMessage(this.room, seat.playerId));
+    this.send(entry.socket, createWelcomeMessage(this.room, seatPlayerId));
   }
 
   private destroyRoom(): void {

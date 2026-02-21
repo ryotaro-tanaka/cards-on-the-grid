@@ -19,7 +19,7 @@ WebSocket:
 
 ※ playerId は固定文字列でもOK（例: p1 / p2）
 ※ name は表示名用（任意）
-※ `HELLO.payload.playerId` で seat（`p1` / `p2`）を確定する。
+※ `HELLO.payload.playerId` は任意。未指定または不正値の場合、空席が `p1` → `p2` の順で自動割り当てされる。
 ※ 接続URLの `playerId` クエリは任意で、seat確定には使用しない。
 ※ 同一 `playerId` の再接続は許可され、既存接続は `RECONNECTED` として切断される。
 ※ seat未確定の接続からの `INTENT` は `REJECT(reason=SEAT_UNASSIGNED)`。
@@ -81,6 +81,15 @@ WebSocket:
   "payload": {
     "playerId": "p1"
   }
+}
+```
+
+自動割り当てを使う場合は `playerId` を省略できる。
+
+```json
+{
+  "type": "HELLO",
+  "payload": {}
 }
 ```
 

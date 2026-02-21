@@ -34,7 +34,7 @@ export type WebSocketLike = ReadyStateCarrier & {
 export type ConnectOptions = {
   baseUrl: string;
   roomId: string;
-  playerId: PlayerId;
+  playerId: PlayerId | 'auto';
   name?: string;
   onConnectionStatusChange?: (status: ConnectionStatus) => void;
   onResyncStatusChange?: (isResyncing: boolean) => void;
@@ -125,7 +125,7 @@ export function connect(options: ConnectOptions): FrontendConnection {
       send({
         type: 'HELLO',
         payload: {
-          playerId: options.playerId,
+          ...(options.playerId === 'auto' ? {} : { playerId: options.playerId }),
         },
       });
     };
