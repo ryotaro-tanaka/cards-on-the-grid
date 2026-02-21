@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cards-on-the-grid-v1';
+const CACHE_NAME = 'cards-on-the-grid-v2';
 const APP_SHELL = ['/', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
@@ -24,14 +24,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  const requestUrl = new URL(event.request.url);
+  if (requestUrl.origin !== self.location.origin) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => (
       cached
       || fetch(event.request).then((response) => {
-        const responseCopy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseCopy);
-        });
+        const contentType = response.headers.get('content-type') ?? '';
+        const isScriptLike = event.request.destination === 'script' || event.request.destination === 'worker';
+        const isCacheable = response.ok
+          && (!isScriptLike || /javascript|ecmascript/i.test(contentType));
+
+        if (isCacheable) {
+          const responseCopy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseCopy);
+          });
+        }
+
         return response;
       })
     )),
