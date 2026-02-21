@@ -15,11 +15,12 @@
 
 ---
 
-## 全体進捗サマリ（2026-02-21 02:10更新 / Australia/Cairns(AEST)）
+## 全体進捗サマリ（2026-02-21 15:00更新 / UTC）
 
 - **達成済み（基盤）**: WebSocket入室、`INTENT` 受付、`EVENT/REJECT/SYNC` 配信、`seq` 順適用、通しe2e smoke整備
 - **達成済み（core主要機能）**: Creature種別/ステータス、Move検証強化、自動戦闘、死亡時補充キュー、補充召喚、勝敗確定、終局後reject
-- **未達成（主にfrontend）**: UI体験層、終了状態表示の磨き込み
+- **進捗更新（frontend）**: フェーズ0〜4の状態管理/通信/UI ViewModel/再同期/再接続/終了表示ロジックは実装済み（モジュール・テストベース）
+- **未達成（frontend最終段）**: React + Cloudflare Pages の実画面実装・ルーティング・入力イベント配線・本番デプロイ導線
 - **注意点（仕様差分）**:
   - 補充位置は「自陣地内の決定的先頭空きマス」（任意配置ではなく暫定）
 
@@ -75,14 +76,18 @@
 ### frontend
 
 **完成しているもの**
-- `WELCOME` / `EVENT` / `SYNC` の受信反映 reducer
-- `seq` 欠損時にイベントを適用しない安全側挙動
+- `WELCOME` / `EVENT` / `SYNC` / `REJECT` の受信反映 reducer
+- `seq` 欠損時の `RESYNC_REQUEST` 導線を含む通信クライアント
+- 7x7盤面の ViewModel、駒選択、`Move` / `EndTurn` INTENT 生成
+- ルーム状態・ターン状態・REJECT理由・接続状態・終了状態（勝敗）の表示用 ViewModel
+- 再接続 API（同一 roomId/playerId）
+- frontend unit / e2e smoke での基礎検証
 
 **未完成のもの**
-- 7x7盤面UI・手札UI・開始UI などの体験層の完成
-- 2人入室や開始状態の表示/制御
-- 勝敗表示
-- ゲームルールに沿った操作UI（現状仕様全体への追従）
+- React コンポーネント実装（実DOM描画、クリックハンドラ、ボタンUI）
+- Cloudflare Pages 向けのビルド/配信設定と本番デプロイ検証
+- 実ブラウザ上での対戦操作フローのE2E（2クライアント接続・操作）
+- PWAとしての配布要件（manifest / service worker / install導線）
 
 ---
 
@@ -95,6 +100,7 @@
 
 ## 直近の優先実装
 
-1. frontend の盤面/ターン/終了状態の最低限UI
-2. frontend での REJECT 理由表示と再同期導線の実装
-3. core の補充配置仕様を最終仕様に合わせて調整
+1. frontendロジックを React 実画面へ接続（盤面クリック/ターン終了/通知表示）
+2. Cloudflare Pages へデプロイ可能な構成（build設定・環境変数・配信確認）
+3. 2クライアントでの実ブラウザE2Eを追加（入室〜終了まで）
+4. core の補充配置仕様を最終仕様に合わせて調整
