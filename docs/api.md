@@ -187,6 +187,151 @@ WebSocket:
 }
 ```
 
+
+### INTENT（Request: UseCard）
+
+`UseCard` はカード追加時にも `intent.type` を増やさず、`cardKind` とパラメータで拡張する。
+
+#### UseCard 共通スキーマ
+
+| フィールド | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `type` | `"UseCard"` | 必須 | intent 種別 |
+| `cardId` | `string` | 必須 | 手札内のカードインスタンスID |
+| `cardKind` | `string` | 必須 | 使用するカード種別 |
+| `pieceId` | `string` | 任意 | 駒を対象にするカードで使用 |
+| `to` | `{x:number,y:number}` | 任意 | 移動/配置先座標が必要なカードで使用 |
+| `targetPlayerId` | `string` | 任意 | プレイヤー指定が必要なカードで使用 |
+| `targetPieceId` | `string` | 任意 | 敵/味方1体指定カードで使用 |
+
+#### カード別の必須パラメータ（現行仕様）
+
+| cardKind | 必須パラメータ | 備考 |
+|---|---|---|
+| `Move` | `pieceId`, `to` | 1マス移動（攻撃なし） |
+| `Assault` | `pieceId`, `to` | 1マス移動＋攻撃あり |
+| `Stealing` | `targetPlayerId` | 相手空手札時は使用不可 |
+| `Arrowrain` | `targetPieceId` | 敵1体指定 |
+| `Rock Bombardment` | `targetPieceId` | 自陣地内の敵1体 |
+| `Lightning` | `targetPieceId` | 敵陣地内1体 |
+| `Recharge` | `pieceId` | 使用済みアクティブスキル持ち |
+| `Doping` | `pieceId` | 自軍1体 |
+| `Barrier` | `pieceId` | 自軍1体 |
+| `Breath` | `pieceId` | 自軍1体 |
+| `Mine` | `to` | 死守陣地除く自陣のみ |
+
+#### 例1: UseCard（Move）
+
+```json
+{
+  "type": "INTENT",
+  "payload": {
+    "expectedTurn": 4,
+    "command": {
+      "actorPlayerId": "p1",
+      "intent": {
+        "type": "UseCard",
+        "cardId": "c_102",
+        "cardKind": "Move",
+        "pieceId": "p1_2",
+        "to": { "x": 3, "y": 3 }
+      }
+    }
+  }
+}
+```
+
+#### 例2: UseCard（Stealing）
+
+```json
+{
+  "type": "INTENT",
+  "payload": {
+    "expectedTurn": 4,
+    "command": {
+      "actorPlayerId": "p1",
+      "intent": {
+        "type": "UseCard",
+        "cardId": "c_205",
+        "cardKind": "Stealing",
+        "targetPlayerId": "p2"
+      }
+    }
+  }
+}
+```
+
+### EVENT（Response: CardDrawn）
+
+```json
+{
+  "type": "EVENT",
+  "payload": {
+    "seq": 13,
+    "event": {
+      "type": "CardDrawn",
+      "playerId": "p1",
+      "card": {
+        "id": "c_301",
+        "kind": "Arrowrain"
+      }
+    }
+  }
+}
+```
+
+### EVENT（Response: CardDiscardedForDrawLimit）
+
+```json
+{
+  "type": "EVENT",
+  "payload": {
+    "seq": 14,
+    "event": {
+      "type": "CardDiscardedForDrawLimit",
+      "playerId": "p1",
+      "discardedCardId": "c_090"
+    }
+  }
+}
+```
+
+### EVENT（Response: MinePlaced）
+
+```json
+{
+  "type": "EVENT",
+  "payload": {
+    "seq": 20,
+    "event": {
+      "type": "MinePlaced",
+      "owner": "p1",
+      "position": { "x": 2, "y": 1 }
+    }
+  }
+}
+```
+
+### EVENT（Response: CardStolen）
+
+```json
+{
+  "type": "EVENT",
+  "payload": {
+    "seq": 25,
+    "event": {
+      "type": "CardStolen",
+      "fromPlayerId": "p2",
+      "toPlayerId": "p1",
+      "card": {
+        "id": "c_410",
+        "kind": "Barrier"
+      }
+    }
+  }
+}
+```
+
 ### REJECT（Response）
 
 ```json
