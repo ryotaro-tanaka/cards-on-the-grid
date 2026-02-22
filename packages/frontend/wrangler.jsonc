@@ -1,5 +1,5 @@
 {
-  "name": "cards-on-the-grid-frontend",
-  "compatibility_date": "2026-02-21",
+  "name": "cards-on-the-grid",
+  "compatibility_date": "2026-02-22",
   "pages_build_output_dir": "dist"
 }
