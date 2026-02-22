@@ -200,20 +200,9 @@ function formatDebugMessage(entry: DebugMessage): string {
 
 
 
-const PIECE_ICON_SVG = encodeURIComponent(
-  `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>
-    <g fill='none' stroke='#0f172a' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'>
-      <path d='M32 8c4 0 7 3 7 7s-3 7-7 7-7-3-7-7 3-7 7-7z' fill='#e2e8f0'/>
-      <path d='M22 30c0-6 4-10 10-10s10 4 10 10v4H22z' fill='#cbd5e1'/>
-      <path d='M18 49h28l-3-9H21z' fill='#94a3b8'/>
-      <path d='M15 56h34v4H15z' fill='#64748b'/>
-    </g>
-  </svg>`,
-);
-
 function createPieceIcon(): HTMLImageElement {
   const icon = document.createElement('img');
-  icon.src = `data:image/svg+xml,${PIECE_ICON_SVG}`;
+  icon.src = '/pieces/chess-piece.svg';
   icon.alt = 'piece icon';
   icon.width = 20;
   icon.height = 20;
@@ -229,18 +218,18 @@ type ZoneTone = {
 
 function resolveZoneTone(y: number, you: ClientState['you']): ZoneTone {
   if (you === 'p1') {
-    if (y === 0) return { base: '#eaf0ff', overlay: 'rgba(59, 130, 246, 0.16)' };
-    if (y === 1 || y === 2) return { base: '#f2f6ff', overlay: 'rgba(59, 130, 246, 0.1)' };
-    if (y === 6) return { base: '#ffeef0', overlay: 'rgba(239, 68, 68, 0.16)' };
-    if (y === 4 || y === 5) return { base: '#fff5f5', overlay: 'rgba(239, 68, 68, 0.1)' };
+    if (y === 0) return { base: '#f4f7fb', overlay: 'rgba(15, 23, 42, 0.06)' };
+    if (y === 1 || y === 2) return { base: '#f6f8fc', overlay: 'rgba(15, 23, 42, 0.03)' };
+    if (y === 6) return { base: '#f4f7fb', overlay: 'rgba(15, 23, 42, 0.06)' };
+    if (y === 4 || y === 5) return { base: '#f6f8fc', overlay: 'rgba(15, 23, 42, 0.03)' };
     return { base: '#f8fafc', overlay: 'transparent' };
   }
 
   if (you === 'p2') {
-    if (y === 6) return { base: '#eaf0ff', overlay: 'rgba(59, 130, 246, 0.16)' };
-    if (y === 4 || y === 5) return { base: '#f2f6ff', overlay: 'rgba(59, 130, 246, 0.1)' };
-    if (y === 0) return { base: '#ffeef0', overlay: 'rgba(239, 68, 68, 0.16)' };
-    if (y === 1 || y === 2) return { base: '#fff5f5', overlay: 'rgba(239, 68, 68, 0.1)' };
+    if (y === 6) return { base: '#f4f7fb', overlay: 'rgba(15, 23, 42, 0.06)' };
+    if (y === 4 || y === 5) return { base: '#f6f8fc', overlay: 'rgba(15, 23, 42, 0.03)' };
+    if (y === 0) return { base: '#f4f7fb', overlay: 'rgba(15, 23, 42, 0.06)' };
+    if (y === 1 || y === 2) return { base: '#f6f8fc', overlay: 'rgba(15, 23, 42, 0.03)' };
     return { base: '#f8fafc', overlay: 'transparent' };
   }
 
@@ -291,13 +280,12 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
         ? '2px solid #2563eb'
         : (cell.isMovable ? '2px solid #16a34a' : '1px solid #94a3b8');
       const zoneTone = resolveZoneTone(cell.y, state.you);
-      const pieceColor = cell.piece ? (cell.isOwnPiece ? '#dbeafe' : '#fee2e2') : null;
-      button.style.backgroundColor = cell.isMovable ? '#dcfce7' : (pieceColor ?? zoneTone.base);
+      button.style.backgroundColor = cell.isMovable ? '#dcfce7' : zoneTone.base;
       button.style.backgroundImage = !cell.isMovable && zoneTone.overlay !== 'transparent' ? `linear-gradient(${zoneTone.overlay}, ${zoneTone.overlay})` : 'none';
       if (cell.piece) {
         const pieceLabel = document.createElement('div');
-        pieceLabel.textContent = `${cell.piece.currentHp}`;
-        pieceLabel.style.fontSize = '11px';
+        pieceLabel.textContent = `HP:${cell.piece.currentHp} AT:${cell.piece.attack}`;
+        pieceLabel.style.fontSize = '10px';
         pieceLabel.style.fontWeight = '700';
         pieceLabel.style.lineHeight = '1';
         pieceLabel.style.marginTop = '2px';
