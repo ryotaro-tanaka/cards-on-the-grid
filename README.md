@@ -16,9 +16,22 @@ Worker(backend) と Pages(frontend) は Cloudflare 上では別デプロイ単�
 本リポジトリでは `npm run deploy` で順番に実行する。
 
 - backend: `npm run deploy:backend`
+- backend version upload: `npm run deploy:backend:version`
 - frontend: `npm run deploy:frontend`
 - frontend build: `npm run build:frontend:pages` (Vite で `packages/frontend/dist` を生成)
 - all-in-one: `npm run deploy`
+
+### Cloudflare Builds のコマンド設定
+
+Cloudflare 側で `Root directory: /` のまま運用する場合、backend の `wrangler.jsonc` を使うには `--cwd packages/backend` を **Deploy command / Version command の両方** に付ける必要があります。
+
+- Deploy command: `npx wrangler --cwd packages/backend deploy`
+- Version command: `npx wrangler --cwd packages/backend versions upload`
+
+もしくは npm script 経由で以下を指定してください。
+
+- Deploy command: `npm run deploy:backend`
+- Version command: `npm run deploy:backend:version`
 
 ### 必須環境変数
 
