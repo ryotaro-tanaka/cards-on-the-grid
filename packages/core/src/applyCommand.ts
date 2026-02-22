@@ -2,14 +2,22 @@ import { applyEvent } from './applyEvent.js';
 import type { Command, Event, GameState, Piece, PlayerId, ValidationResult } from './types.js';
 import { validateIntent } from './validateIntent.js';
 
-function homeRows(owner: string): number[] {
-  return owner === 'p1' ? [0, 1] : [6, 5];
+function isFirstPlayer(state: GameState, owner: PlayerId): boolean {
+  return owner === state.players[0];
 }
 
-function firstSpawnPosition(state: GameState, owner: string): { x: number; y: number } | null {
+function defenseRows(state: GameState, owner: PlayerId): [number] {
+  return isFirstPlayer(state, owner) ? [0] : [6];
+}
+
+function reinforcementRows(state: GameState, owner: PlayerId): [number, number] {
+  return isFirstPlayer(state, owner) ? [1, 2] : [5, 4];
+}
+
+function firstSpawnPosition(state: GameState, owner: PlayerId): { x: number; y: number } | null {
   const occupied = new Set(state.pieces.map((piece) => `${piece.position.x},${piece.position.y}`));
 
-  for (const y of homeRows(owner)) {
+  for (const y of reinforcementRows(state, owner)) {
     for (let x = 0; x < 7; x += 1) {
       const key = `${x},${y}`;
       if (!occupied.has(key)) {
@@ -25,8 +33,9 @@ function determineWinner(state: GameState): PlayerId | null {
   const [firstPlayer, secondPlayer] = state.players;
 
   for (const piece of state.pieces) {
-    const opponentHome = piece.owner === firstPlayer ? homeRows(secondPlayer) : homeRows(firstPlayer);
-    if (opponentHome.includes(piece.position.y)) {
+    const opponentDefense =
+      piece.owner === firstPlayer ? defenseRows(state, secondPlayer) : defenseRows(state, firstPlayer);
+    if (opponentDefense.includes(piece.position.y)) {
       return piece.owner;
     }
   }

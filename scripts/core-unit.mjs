@@ -108,7 +108,28 @@ function pieceAt(state, x, y) {
   assert.equal(endP1.events.some((e) => e.type === 'SuccessorSpawned'), true);
 }
 
-// 正常系: 勝敗確定（相手初期陣地への侵入）
+// 正常系: 勝敗確定（相手死守陣地への侵入）
+{
+  const initial = createInitialState();
+  const p1Soldier = initial.pieces.find((p) => p.owner === 'p1' && p.kind === 'Soldier');
+  assert.ok(p1Soldier);
+
+  const state = {
+    ...initial,
+    pieces: [{ ...p1Soldier, position: { x: 2, y: 5 } }],
+  };
+
+  const result = applyCommand(state, {
+    actorPlayerId: 'p1',
+    intent: { type: 'Move', pieceId: p1Soldier.id, to: { x: 2, y: 6 } },
+  });
+
+  assert.equal(result.events.some((event) => event.type === 'GameFinished'), true);
+  assert.equal(result.state.status, 'Finished');
+  assert.equal(result.state.winner, 'p1');
+}
+
+// 正常系: 相手陣地（非死守）侵入では終局しない
 {
   const initial = createInitialState();
   const p1Soldier = initial.pieces.find((p) => p.owner === 'p1' && p.kind === 'Soldier');
@@ -124,9 +145,8 @@ function pieceAt(state, x, y) {
     intent: { type: 'Move', pieceId: p1Soldier.id, to: { x: 2, y: 5 } },
   });
 
-  assert.equal(result.events.some((event) => event.type === 'GameFinished'), true);
-  assert.equal(result.state.status, 'Finished');
-  assert.equal(result.state.winner, 'p1');
+  assert.equal(result.events.some((event) => event.type === 'GameFinished'), false);
+  assert.equal(result.state.status, 'InProgress');
 }
 
 // 正常系: 相手盤面0体だけでは終局しない
@@ -148,6 +168,38 @@ function pieceAt(state, x, y) {
   assert.equal(result.events.some((event) => event.type === 'GameFinished'), false);
   assert.equal(result.state.status, 'InProgress');
   assert.equal(result.state.winner, null);
+}
+
+// 正常系: 補充召喚は死守陣地を除く自陣地のみ
+{
+  const initial = createInitialState();
+  const state = {
+    ...initial,
+    pieces: initial.pieces.filter((piece) => piece.owner === 'p1'),
+    pendingSuccessors: [
+      {
+        id: 'pending-p2',
+        owner: 'p2',
+        kind: 'Ameba',
+        stats: { maxHp: 1, attack: 1, successorCost: 1 },
+        turnsRemaining: 1,
+      },
+    ],
+    activePlayer: 'p1',
+    turnState: { movedPieceIds: [] },
+  };
+
+  const result = applyCommand(state, {
+    actorPlayerId: 'p1',
+    intent: { type: 'EndTurn' },
+  });
+
+  const spawned = result.events.find((event) => event.type === 'SuccessorSpawned');
+  assert.ok(spawned);
+  if (spawned.type === 'SuccessorSpawned') {
+    assert.notEqual(spawned.piece.position.y, 6);
+    assert.equal([5, 4].includes(spawned.piece.position.y), true);
+  }
 }
 
 // 異常系: 手番違反
