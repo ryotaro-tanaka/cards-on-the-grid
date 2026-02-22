@@ -187,6 +187,127 @@ WebSocket:
 }
 ```
 
+
+### INTENT（Request: UseCard / Move）
+
+```json
+{
+  "type": "INTENT",
+  "payload": {
+    "expectedTurn": 4,
+    "command": {
+      "actorPlayerId": "p1",
+      "intent": {
+        "type": "UseCard",
+        "cardId": "c_102",
+        "cardKind": "Move",
+        "pieceId": "p1_2",
+        "to": { "x": 3, "y": 3 }
+      }
+    }
+  }
+}
+```
+
+### INTENT（Request: UseCard / Stealing）
+
+```json
+{
+  "type": "INTENT",
+  "payload": {
+    "expectedTurn": 4,
+    "command": {
+      "actorPlayerId": "p1",
+      "intent": {
+        "type": "UseCard",
+        "cardId": "c_205",
+        "cardKind": "Stealing",
+        "targetPlayerId": "p2"
+      }
+    }
+  }
+}
+```
+
+### EVENT（Response: CardDrawn）
+
+```json
+{
+  "type": "EVENT",
+  "payload": {
+    "seq": 13,
+    "event": {
+      "type": "CardDrawn",
+      "playerId": "p1",
+      "card": {
+        "id": "c_301",
+        "kind": "Arrowrain"
+      }
+    }
+  }
+}
+```
+
+### EVENT（Response: CardDiscardedForDrawLimit）
+
+```json
+{
+  "type": "EVENT",
+  "payload": {
+    "seq": 14,
+    "event": {
+      "type": "CardDiscardedForDrawLimit",
+      "playerId": "p1",
+      "discardedCardId": "c_090"
+    }
+  }
+}
+```
+
+### EVENT（Response: MinePlaced）
+
+```json
+{
+  "type": "EVENT",
+  "payload": {
+    "seq": 20,
+    "event": {
+      "type": "MinePlaced",
+      "owner": "p1",
+      "position": { "x": 2, "y": 1 }
+    }
+  }
+}
+```
+
+### EVENT（Response: CardStolen）
+
+```json
+{
+  "type": "EVENT",
+  "payload": {
+    "seq": 25,
+    "event": {
+      "type": "CardStolen",
+      "fromPlayerId": "p2",
+      "toPlayerId": "p1",
+      "card": {
+        "id": "c_410",
+        "kind": "Barrier"
+      }
+    }
+  }
+}
+```
+
+#### カード仕様メモ（実装方針）
+
+- ドロー時に手札が5枚の場合は、ランダムに1枚捨ててから1枚ドローする。
+- Move/Assault はカード効果として解決し、通常の移動権（1ターン1回）とは別管理。
+- Move は1マス移動（攻撃なし）、Assault は1マス移動＋攻撃あり。
+- Mine の設置先は死守陣地を除く自陣のみ。
+- Stealing は相手手札から一様ランダムで1枚奪う。相手が空手札なら使用不可（REJECT）。
+
 ### REJECT（Response）
 
 ```json
