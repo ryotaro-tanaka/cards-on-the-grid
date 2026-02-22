@@ -188,7 +188,39 @@ WebSocket:
 ```
 
 
-### INTENT（Request: UseCard / Move）
+### INTENT（Request: UseCard）
+
+`UseCard` はカード追加時にも `intent.type` を増やさず、`cardKind` とパラメータで拡張する。
+
+#### UseCard 共通スキーマ
+
+| フィールド | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `type` | `"UseCard"` | 必須 | intent 種別 |
+| `cardId` | `string` | 必須 | 手札内のカードインスタンスID |
+| `cardKind` | `string` | 必須 | 使用するカード種別 |
+| `pieceId` | `string` | 任意 | 駒を対象にするカードで使用 |
+| `to` | `{x:number,y:number}` | 任意 | 移動/配置先座標が必要なカードで使用 |
+| `targetPlayerId` | `string` | 任意 | プレイヤー指定が必要なカードで使用 |
+| `targetPieceId` | `string` | 任意 | 敵/味方1体指定カードで使用 |
+
+#### カード別の必須パラメータ（現行仕様）
+
+| cardKind | 必須パラメータ | 備考 |
+|---|---|---|
+| `Move` | `pieceId`, `to` | 1マス移動（攻撃なし） |
+| `Assault` | `pieceId`, `to` | 1マス移動＋攻撃あり |
+| `Stealing` | `targetPlayerId` | 相手空手札時は使用不可 |
+| `Arrowrain` | `targetPieceId` | 敵1体指定 |
+| `Rock Bombardment` | `targetPieceId` | 自陣地内の敵1体 |
+| `Lightning` | `targetPieceId` | 敵陣地内1体 |
+| `Recharge` | `pieceId` | 使用済みアクティブスキル持ち |
+| `Doping` | `pieceId` | 自軍1体 |
+| `Barrier` | `pieceId` | 自軍1体 |
+| `Breath` | `pieceId` | 自軍1体 |
+| `Mine` | `to` | 死守陣地除く自陣のみ |
+
+#### 例1: UseCard（Move）
 
 ```json
 {
@@ -209,7 +241,7 @@ WebSocket:
 }
 ```
 
-### INTENT（Request: UseCard / Stealing）
+#### 例2: UseCard（Stealing）
 
 ```json
 {
@@ -299,14 +331,6 @@ WebSocket:
   }
 }
 ```
-
-#### カード仕様メモ（実装方針）
-
-- ドロー時に手札が5枚の場合は、ランダムに1枚捨ててから1枚ドローする。
-- Move/Assault はカード効果として解決し、通常の移動権（1ターン1回）とは別管理。
-- Move は1マス移動（攻撃なし）、Assault は1マス移動＋攻撃あり。
-- Mine の設置先は死守陣地を除く自陣のみ。
-- Stealing は相手手札から一様ランダムで1枚奪う。相手が空手札なら使用不可（REJECT）。
 
 ### REJECT（Response）
 
