@@ -119,6 +119,20 @@ const waitingState = {
 };
 assert.equal(buildViewModel(waitingState, null).actionAvailabilityMessage, '操作待機中: 対戦開始を待っています。');
 
+
+const finishedByEvent = reduceIncoming(client, {
+  type: 'EVENT',
+  payload: {
+    seq: 1,
+    event: {
+      type: 'GameFinished',
+      winner: 'p1',
+    },
+  },
+});
+assert.equal(finishedByEvent.roomStatus, 'finished');
+assert.equal(canAct(finishedByEvent), false);
+
 const withReject = reduceIncoming(client, {
   type: 'REJECT',
   payload: {

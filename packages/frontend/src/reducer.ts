@@ -58,11 +58,14 @@ export function reduceIncoming(current: ClientState, message: IncomingMessage): 
     return current;
   }
 
+  const nextState = applyEvent(current.state, message.payload.event);
+
   return {
     ...current,
     isResyncing: false,
     seq: message.payload.seq,
-    state: applyEvent(current.state, message.payload.event),
+    roomStatus: nextState.status === 'Finished' ? 'finished' : current.roomStatus,
+    state: nextState,
     lastReject: null,
   };
 }
