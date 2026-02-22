@@ -11,7 +11,7 @@ import {
   type ClientMessage,
   type ServerMessage,
 } from './ws.js';
-import type { PlayerId } from '../../core/dist/index.js';
+import type { PlayerId } from '../../core/src/index.js';
 
 declare const WebSocketPair: {
   new (): { 0: WebSocket; 1: WebSocket };

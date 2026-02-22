@@ -6,7 +6,7 @@ import {
   type GameState,
   type InvalidReason,
   type PlayerId,
-} from '../../core/dist/index.js';
+} from '../../core/src/index.js';
 
 const EVENT_LOG_LIMIT = 64;
 
