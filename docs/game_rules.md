@@ -42,6 +42,12 @@ A1 B1 C1 D1 E1 F1 G1
 - *Creature* が移動したマスは、そのプレイヤーの陣地として扱う
   - 初期陣地は常に陣地として固定される
 
+### ゲーム開始時の *Creatures*
+
+- 初期 *Creatures*: 重複無しでランダムに3体ずつ
+- *You* の *Creatures* の初期位置: B2, D2, F2
+- *Opponent* の *Creatures* の初期位置: B6, D6, F6
+
 ### マスの重複ルール
 
 - *Creature* × *Creature*：不可
