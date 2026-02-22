@@ -1,4 +1,4 @@
-import type { Command, PlayerId } from '../../core/dist/index.js';
+import type { Command, PlayerId } from '../../core/src/index.js';
 import type {
   ConnectionStatus,
   EventPayload,

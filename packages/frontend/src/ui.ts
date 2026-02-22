@@ -1,4 +1,4 @@
-import type { Command, Coord, Piece } from '../../core/dist/index.js';
+import type { Command, Coord, Piece } from '../../core/src/index.js';
 import type { ClientState, IntentMessage } from './types.js';
 
 export const BOARD_SIZE = 7;

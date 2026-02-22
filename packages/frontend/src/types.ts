@@ -1,4 +1,4 @@
-import type { Command, Event, GameState, PlayerId } from '../../core/dist/index.js';
+import type { Command, Event, GameState, PlayerId } from '../../core/src/index.js';
 
 export type RoomStatus = 'waiting' | 'started' | 'finished';
 
