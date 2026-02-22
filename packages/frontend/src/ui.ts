@@ -40,8 +40,9 @@ export function canAct(state: ClientState): boolean {
 export function buildBoardViewModel(state: ClientState, selectedPieceId: string | null): BoardViewModel {
   const cells: CellViewModel[] = [];
 
-  for (let y = 0; y < BOARD_SIZE; y += 1) {
+  for (let displayY = 0; displayY < BOARD_SIZE; displayY += 1) {
     for (let x = 0; x < BOARD_SIZE; x += 1) {
+      const y = toGameY(displayY, state.you);
       const piece = state.state?.pieces.find((item) => item.position.x === x && item.position.y === y) ?? null;
 
       cells.push({
@@ -65,6 +66,14 @@ export function buildBoardViewModel(state: ClientState, selectedPieceId: string 
     size: BOARD_SIZE,
     cells,
   };
+}
+
+function toGameY(displayY: number, you: ClientState['you']): number {
+  if (you === 'p1') {
+    return BOARD_SIZE - 1 - displayY;
+  }
+
+  return displayY;
 }
 
 export function selectPiece(state: ClientState, selectedPieceId: string | null, pieceId: string): string | null {

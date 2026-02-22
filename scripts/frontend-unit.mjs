@@ -77,10 +77,16 @@ assert.equal(
 const board = buildBoardViewModel(client, null);
 assert.equal(board.size, 7);
 assert.equal(board.cells.length, 49);
+assert.equal(board.cells[0].piece?.owner, 'p2');
+assert.equal(board.cells.at(-1)?.piece?.owner, 'p1');
 const ownPieceCell = board.cells.find((cell) => cell.piece?.owner === 'p1');
 assert.ok(ownPieceCell && ownPieceCell.piece);
 const ownPieceId = ownPieceCell?.piece?.id ?? '';
 assert.equal(ownPieceCell?.isOwnPiece, true);
+
+const boardForP2 = buildBoardViewModel({ ...client, you: 'p2' }, null);
+assert.equal(boardForP2.cells[0].piece?.owner, 'p1');
+assert.equal(boardForP2.cells.at(-1)?.piece?.owner, 'p2');
 
 const selected = selectPiece(client, null, ownPieceId);
 assert.equal(selected, ownPieceId);
