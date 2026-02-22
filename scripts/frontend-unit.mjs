@@ -119,6 +119,20 @@ const waitingState = {
 };
 assert.equal(buildViewModel(waitingState, null).actionAvailabilityMessage, '操作待機中: 対戦開始を待っています。');
 
+
+const finishedByEvent = reduceIncoming(client, {
+  type: 'EVENT',
+  payload: {
+    seq: 1,
+    event: {
+      type: 'GameFinished',
+      winner: 'p1',
+    },
+  },
+});
+assert.equal(finishedByEvent.roomStatus, 'finished');
+assert.equal(canAct(finishedByEvent), false);
+
 const withReject = reduceIncoming(client, {
   type: 'REJECT',
   payload: {
@@ -131,6 +145,20 @@ assert.equal(
   buildViewModel(withReject, null).errorMessage,
   'Turn mismatch. Please resync and try again. (expected turn: 2)',
 );
+assert.equal(withReject.debugIncomingMessages.length, 2);
+assert.equal(withReject.debugIncomingMessages.at(-1)?.type, 'REJECT');
+
+let cappedDebugState = client;
+for (let i = 0; i < 35; i += 1) {
+  cappedDebugState = reduceIncoming(cappedDebugState, {
+    type: 'REJECT',
+    payload: {
+      reason: 'TURN_MISMATCH',
+      expectedTurn: i,
+    },
+  });
+}
+assert.equal(cappedDebugState.debugIncomingMessages.length, 30);
 
 const finishedState = {
   ...client,
@@ -182,6 +210,13 @@ class FakeSocket {
   }
 }
 
+
+const loggedMessages = [];
+const originalConsoleLog = console.log;
+console.log = (...args) => {
+  loggedMessages.push(args);
+};
+
 globalThis.WebSocket = FakeSocket;
 const sockets = [];
 const connectionStatuses = [];
@@ -208,6 +243,17 @@ assert.equal(sockets[0].sent[0].payload.playerId, 'p1');
 
 sockets[0].receive('{"type":"UNKNOWN"}');
 assert.equal(invalidFrames.length, 1);
+
+
+sockets[0].receive(JSON.stringify({
+  type: 'REJECT',
+  payload: {
+    reason: 'TURN_MISMATCH',
+    expectedTurn: 1,
+  },
+}));
+assert.equal(loggedMessages.some((entry) => entry[0] === '[server-response]' && entry[1].includes('TURN_MISMATCH')), true);
+
 
 connection.reconnect();
 assert.equal(sockets.length, 2);
@@ -296,4 +342,5 @@ Object.defineProperty(globalThis, 'navigator', {
 });
 assert.equal(await registerServiceWorker(), false);
 
+console.log = originalConsoleLog;
 console.log('frontend-unit: ok');

@@ -150,6 +150,8 @@ export function connect(options: ConnectOptions): FrontendConnection {
         return;
       }
 
+      console.log('[server-response]', JSON.stringify(parsed));
+
       if (parsed.type === 'WELCOME' || parsed.type === 'SYNC') {
         hasKnownState = true;
         currentSeq = parsed.payload.seq;

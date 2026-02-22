@@ -1,5 +1,5 @@
 import type { Command, Coord } from '../../core/dist/index.js';
-import type { ClientState, RejectReason, RoomStatus } from './types.js';
+import type { ClientState, IncomingMessage, RejectReason, RoomStatus } from './types.js';
 import { buildBoardViewModel, canAct, createEndTurnIntent, createMoveIntent, selectPiece, type BoardViewModel } from './ui.js';
 
 export type ViewModel = {
@@ -14,6 +14,7 @@ export type ViewModel = {
   selectedPieceId: string | null;
   board: BoardViewModel;
   errorMessage: string | null;
+  debugIncomingMessages: IncomingMessage[];
 };
 
 export type RenderCallbacks = {
@@ -45,6 +46,7 @@ export function buildViewModel(state: ClientState, selectedPieceId: string | nul
     selectedPieceId,
     board: buildBoardViewModel(state, selectedPieceId),
     errorMessage,
+    debugIncomingMessages: state.debugIncomingMessages,
   };
 }
 
@@ -137,8 +139,29 @@ function describeMatchResult(state: ClientState): string | null {
   return `対戦終了: あなたの敗北 (winner: ${state.state.winner})`;
 }
 
+function summarizeIncomingMessage(message: IncomingMessage): string {
+  if (message.type === 'WELCOME') {
+    return `WELCOME ${message.payload.roomId} turn:${message.payload.state.turn}`;
+  }
+
+  if (message.type === 'EVENT') {
+    return `EVENT ${message.payload.event.type} turn:${message.payload.seq}`;
+  }
+
+  if (message.type === 'SYNC') {
+    return `SYNC turn:${message.payload.state.turn} seq:${message.payload.seq}`;
+  }
+
+  return `REJECT ${message.payload.reason} turn:${message.payload.expectedTurn}`;
+}
+
+function formatIncomingMessage(message: IncomingMessage): string {
+  return JSON.stringify(message, null, 2);
+}
+
 export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks): DomRenderer {
   let selectedPieceId: string | null = null;
+  let expandedDebugIndex: number | null = null;
 
   const render = (state: ClientState) => {
     const viewModel = buildViewModel(state, selectedPieceId);
@@ -228,6 +251,49 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
     actionRow.appendChild(reconnectButton);
 
     root.appendChild(actionRow);
+
+    if (viewModel.debugIncomingMessages.length > 0) {
+      const debugTitle = createTextElement('p', 'debug: server responses');
+      debugTitle.style.marginTop = '12px';
+      root.appendChild(debugTitle);
+
+      const debugContainer = document.createElement('div');
+      debugContainer.style.maxWidth = '420px';
+      debugContainer.style.border = '1px solid #cbd5e1';
+      debugContainer.style.backgroundColor = '#f8fafc';
+      debugContainer.style.padding = '8px';
+
+      viewModel.debugIncomingMessages.forEach((message, index) => {
+        const lineButton = document.createElement('button');
+        lineButton.type = 'button';
+        lineButton.textContent = summarizeIncomingMessage(message);
+        lineButton.style.display = 'block';
+        lineButton.style.width = '100%';
+        lineButton.style.textAlign = 'left';
+        lineButton.style.marginBottom = '4px';
+        lineButton.style.border = '1px solid #94a3b8';
+        lineButton.style.backgroundColor = expandedDebugIndex === index ? '#dbeafe' : '#ffffff';
+        lineButton.addEventListener('click', () => {
+          expandedDebugIndex = expandedDebugIndex === index ? null : index;
+          render(state);
+        });
+        debugContainer.appendChild(lineButton);
+
+        if (expandedDebugIndex === index) {
+          const detail = document.createElement('pre');
+          detail.textContent = formatIncomingMessage(message);
+          detail.style.whiteSpace = 'pre-wrap';
+          detail.style.wordBreak = 'break-word';
+          detail.style.margin = '4px 0 8px 0';
+          detail.style.padding = '8px';
+          detail.style.backgroundColor = '#ffffff';
+          detail.style.border = '1px solid #cbd5e1';
+          debugContainer.appendChild(detail);
+        }
+      });
+
+      root.appendChild(debugContainer);
+    }
   };
 
   return { render };
