@@ -298,13 +298,6 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
 
     root.appendChild(board);
 
-    const zoneHint = createTextElement('p', '色分け: 青系=自陣(濃い行=死守陣地) / 赤系=相手陣(濃い行=死守陣地)');
-    zoneHint.style.maxWidth = '420px';
-    zoneHint.style.margin = '8px 0 0 0';
-    zoneHint.style.fontSize = '12px';
-    zoneHint.style.color = '#64748b';
-    root.appendChild(zoneHint);
-
     const actionRow = document.createElement('div');
     actionRow.style.display = 'flex';
     actionRow.style.gap = '8px';
