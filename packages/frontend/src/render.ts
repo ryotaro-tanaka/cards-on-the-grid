@@ -217,23 +217,29 @@ type ZoneTone = {
 };
 
 function resolveZoneTone(y: number, you: ClientState['you']): ZoneTone {
+  const ownDefense: ZoneTone = { base: '#e8f1ff', overlay: 'rgba(30, 64, 175, 0.14)' };
+  const ownTerritory: ZoneTone = { base: '#f2f7ff', overlay: 'rgba(30, 64, 175, 0.08)' };
+  const opponentDefense: ZoneTone = { base: '#fff4e6', overlay: 'rgba(180, 83, 9, 0.14)' };
+  const opponentTerritory: ZoneTone = { base: '#fff9f0', overlay: 'rgba(180, 83, 9, 0.08)' };
+  const neutral: ZoneTone = { base: '#f8fafc', overlay: 'transparent' };
+
   if (you === 'p1') {
-    if (y === 0) return { base: '#f4f7fb', overlay: 'rgba(15, 23, 42, 0.06)' };
-    if (y === 1 || y === 2) return { base: '#f6f8fc', overlay: 'rgba(15, 23, 42, 0.03)' };
-    if (y === 6) return { base: '#f4f7fb', overlay: 'rgba(15, 23, 42, 0.06)' };
-    if (y === 4 || y === 5) return { base: '#f6f8fc', overlay: 'rgba(15, 23, 42, 0.03)' };
-    return { base: '#f8fafc', overlay: 'transparent' };
+    if (y === 0) return ownDefense;
+    if (y === 1 || y === 2) return ownTerritory;
+    if (y === 6) return opponentDefense;
+    if (y === 4 || y === 5) return opponentTerritory;
+    return neutral;
   }
 
   if (you === 'p2') {
-    if (y === 6) return { base: '#f4f7fb', overlay: 'rgba(15, 23, 42, 0.06)' };
-    if (y === 4 || y === 5) return { base: '#f6f8fc', overlay: 'rgba(15, 23, 42, 0.03)' };
-    if (y === 0) return { base: '#f4f7fb', overlay: 'rgba(15, 23, 42, 0.06)' };
-    if (y === 1 || y === 2) return { base: '#f6f8fc', overlay: 'rgba(15, 23, 42, 0.03)' };
-    return { base: '#f8fafc', overlay: 'transparent' };
+    if (y === 6) return ownDefense;
+    if (y === 4 || y === 5) return ownTerritory;
+    if (y === 0) return opponentDefense;
+    if (y === 1 || y === 2) return opponentTerritory;
+    return neutral;
   }
 
-  return { base: '#f8fafc', overlay: 'transparent' };
+  return neutral;
 }
 
 export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks): DomRenderer {
