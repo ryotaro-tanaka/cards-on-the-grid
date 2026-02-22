@@ -9,6 +9,18 @@ function pieceAt(state, x, y) {
   return state.pieces.find((piece) => piece.position.x === x && piece.position.y === y);
 }
 
+// 仕様: 初期配置座標
+{
+  const state = createInitialState();
+
+  assert.equal(pieceAt(state, 1, 1)?.owner, 'p1');
+  assert.equal(pieceAt(state, 3, 1)?.owner, 'p1');
+  assert.equal(pieceAt(state, 5, 1)?.owner, 'p1');
+  assert.equal(pieceAt(state, 1, 5)?.owner, 'p2');
+  assert.equal(pieceAt(state, 3, 5)?.owner, 'p2');
+  assert.equal(pieceAt(state, 5, 5)?.owner, 'p2');
+}
+
 // 正常系: 1マス移動
 {
   const state = createInitialState();
@@ -171,7 +183,15 @@ function pieceAt(state, x, y) {
 
 // 異常系: 重複配置
 {
-  const state = createInitialState();
+  const initial = createInitialState();
+  const state = {
+    ...initial,
+    pieces: initial.pieces.map((piece) =>
+      piece.owner === 'p1' && piece.kind === 'Goblin'
+        ? { ...piece, position: { x: 2, y: 1 } }
+        : piece,
+    ),
+  };
   const ameba = state.pieces.find((p) => p.owner === 'p1' && p.kind === 'Ameba');
   const goblin = state.pieces.find((p) => p.owner === 'p1' && p.kind === 'Goblin');
   assert.ok(ameba && goblin);
