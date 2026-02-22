@@ -82,7 +82,9 @@ assert.equal(board.cells.at(-1)?.piece?.owner, 'p1');
 const ownPieceCell = board.cells.find((cell) => cell.piece?.owner === 'p1');
 assert.ok(ownPieceCell && ownPieceCell.piece);
 const ownPieceId = ownPieceCell?.piece?.id ?? '';
-assert.equal(ownPieceCell?.isOwnPiece, true);
+assert.equal(ownPieceCell?.piece?.attack, 1);
+assert.equal(ownPieceCell?.piece?.maxHp, 1);
+assert.equal(ownPieceCell?.piece?.successorCost, 1);
 
 const boardForP2 = buildBoardViewModel({ ...client, you: 'p2' }, null);
 assert.equal(boardForP2.cells[0].piece?.owner, 'p1');

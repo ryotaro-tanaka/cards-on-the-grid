@@ -235,6 +235,9 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
       button.textContent = cell.piece
         ? `${cell.piece.owner}:${cell.piece.kind}(${cell.piece.currentHp})`
         : `${cell.x},${cell.y}`;
+      button.title = cell.piece
+        ? `owner: ${cell.piece.owner}\nkind: ${cell.piece.kind}\nHP: ${cell.piece.currentHp}/${cell.piece.maxHp}\nATK: ${cell.piece.attack}\nsuccessor cost: ${cell.piece.successorCost}`
+        : 'empty cell';
       button.addEventListener('click', () => {
         if (cell.piece && cell.isOwnPiece) {
           selectedPieceId = selectPiece(state, selectedPieceId, cell.piece.id);

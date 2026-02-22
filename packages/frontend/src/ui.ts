@@ -11,6 +11,9 @@ export type CellViewModel = {
     owner: string;
     kind: Piece['kind'];
     currentHp: number;
+    maxHp: number;
+    attack: number;
+    successorCost: number;
   } | null;
   isSelected: boolean;
   isOwnPiece: boolean;
@@ -54,6 +57,9 @@ export function buildBoardViewModel(state: ClientState, selectedPieceId: string 
             owner: piece.owner,
             kind: piece.kind,
             currentHp: piece.currentHp,
+            maxHp: piece.stats.maxHp,
+            attack: piece.stats.attack,
+            successorCost: piece.stats.successorCost,
           }
           : null,
         isSelected: piece?.id === selectedPieceId,
