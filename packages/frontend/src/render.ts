@@ -1,4 +1,4 @@
-import type { Command, Coord } from '../../core/dist/index.js';
+import type { Command, Coord } from '../../core/src/index.js';
 import type { ClientState, IncomingMessage, RejectReason, RoomStatus } from './types.js';
 import { buildBoardViewModel, canAct, createEndTurnIntent, createMoveIntent, selectPiece, type BoardViewModel } from './ui.js';
 
