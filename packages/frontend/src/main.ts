@@ -27,6 +27,9 @@ const renderer = createDomRenderer(root, {
   onReconnect() {
     connection?.reconnect();
   },
+  onRematch() {
+    connection?.rematch();
+  },
 });
 
 const params = new URLSearchParams(window.location.search);
@@ -70,5 +73,8 @@ connection = connect({
   },
   onMessage(message) {
     dispatch({ type: 'MESSAGE_RECEIVED', payload: message });
+  },
+  onMessageSent(message) {
+    dispatch({ type: 'MESSAGE_SENT', payload: message });
   },
 });

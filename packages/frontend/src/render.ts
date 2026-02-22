@@ -1,9 +1,10 @@
 import type { Command, Coord } from '../../core/src/index.js';
-import type { ClientState, IncomingMessage, RejectReason, RoomStatus } from './types.js';
+import type { ClientState, DebugMessage, IncomingMessage, OutgoingMessage, RejectReason, RoomStatus } from './types.js';
 import { buildBoardViewModel, canAct, createEndTurnIntent, createMoveIntent, selectPiece, type BoardViewModel } from './ui.js';
 
 export type ViewModel = {
   roomLabel: string;
+  playerSeatLabel: string;
   roomStatusLabel: string;
   turnLabel: string;
   connectionLabel: string;
@@ -11,15 +12,17 @@ export type ViewModel = {
   matchResultMessage: string | null;
   canOperate: boolean;
   canEndTurn: boolean;
+  canRematch: boolean;
   selectedPieceId: string | null;
   board: BoardViewModel;
   errorMessage: string | null;
-  debugIncomingMessages: IncomingMessage[];
+  debugMessages: DebugMessage[];
 };
 
 export type RenderCallbacks = {
   onSendIntent: (command: Command, expectedTurn: number) => void;
   onReconnect?: () => void;
+  onRematch?: () => void;
 };
 
 export type DomRenderer = {
@@ -36,6 +39,7 @@ export function buildViewModel(state: ClientState, selectedPieceId: string | nul
 
   return {
     roomLabel,
+    playerSeatLabel: describePlayerSeat(state.you),
     roomStatusLabel: describeRoomStatus(state.roomStatus),
     turnLabel,
     connectionLabel: describeConnectionStatus(state.connectionStatus, state.isResyncing),
@@ -43,10 +47,11 @@ export function buildViewModel(state: ClientState, selectedPieceId: string | nul
     matchResultMessage: describeMatchResult(state),
     canOperate,
     canEndTurn: canOperate,
+    canRematch: state.roomStatus === 'finished' && Boolean(state.you && state.roomId),
     selectedPieceId,
     board: buildBoardViewModel(state, selectedPieceId),
     errorMessage,
-    debugIncomingMessages: state.debugIncomingMessages,
+    debugMessages: state.debugMessages,
   };
 }
 
@@ -64,6 +69,14 @@ export function describeRoomStatus(status: RoomStatus | null): string {
   }
 
   return 'room status unknown';
+}
+
+export function describePlayerSeat(playerId: ClientState['you']): string {
+  if (!playerId) {
+    return 'あなたの席: 割り当て待ち';
+  }
+
+  return `あなたの席: ${playerId}`;
 }
 
 export function describeConnectionStatus(connectionStatus: ClientState['connectionStatus'], isResyncing: boolean): string {
@@ -129,14 +142,14 @@ function describeMatchResult(state: ClientState): string | null {
   }
 
   if (!state.state?.winner || !state.you) {
-    return '対戦終了';
+    return 'Finished';
   }
 
   if (state.state.winner === state.you) {
-    return `対戦終了: あなたの勝利 (${state.state.winner})`;
+    return 'Win';
   }
 
-  return `対戦終了: あなたの敗北 (winner: ${state.state.winner})`;
+  return 'Lose';
 }
 
 function summarizeIncomingMessage(message: IncomingMessage): string {
@@ -155,8 +168,33 @@ function summarizeIncomingMessage(message: IncomingMessage): string {
   return `REJECT ${message.payload.reason} turn:${message.payload.expectedTurn}`;
 }
 
-function formatIncomingMessage(message: IncomingMessage): string {
-  return JSON.stringify(message, null, 2);
+function summarizeOutgoingMessage(message: OutgoingMessage): string {
+  if (message.type === 'HELLO') {
+    return `HELLO player:${message.payload.playerId ?? 'auto'}`;
+  }
+
+  if (message.type === 'INTENT') {
+    return `INTENT ${message.payload.command.intent.type} turn:${message.payload.expectedTurn}`;
+  }
+
+  if (message.type === 'RESYNC_REQUEST') {
+    return `RESYNC_REQUEST fromSeq:${message.payload.fromSeq}`;
+  }
+
+  return `ADMIN ${message.payload.action}`;
+}
+
+function summarizeDebugMessage(entry: DebugMessage): string {
+  const prefix = entry.direction === 'server' ? 'SERVER' : 'FRONT';
+  if (entry.direction === 'server') {
+    return `${prefix} ${summarizeIncomingMessage(entry.message as IncomingMessage)}`;
+  }
+
+  return `${prefix} ${summarizeOutgoingMessage(entry.message as OutgoingMessage)}`;
+}
+
+function formatDebugMessage(entry: DebugMessage): string {
+  return JSON.stringify(entry.message, null, 2);
 }
 
 export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks): DomRenderer {
@@ -172,6 +210,7 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
     root.appendChild(title);
 
     root.appendChild(createTextElement('p', viewModel.roomLabel));
+    root.appendChild(createTextElement('p', viewModel.playerSeatLabel));
     root.appendChild(createTextElement('p', viewModel.roomStatusLabel));
     root.appendChild(createTextElement('p', viewModel.turnLabel));
     root.appendChild(createTextElement('p', viewModel.connectionLabel));
@@ -198,11 +237,18 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
       button.type = 'button';
       button.disabled = !viewModel.canOperate;
       button.style.minHeight = '44px';
-      button.style.border = cell.isSelected ? '2px solid #2563eb' : '1px solid #94a3b8';
-      button.style.backgroundColor = cell.piece ? (cell.isOwnPiece ? '#dbeafe' : '#fee2e2') : '#f8fafc';
+      button.style.border = cell.isSelected
+        ? '2px solid #2563eb'
+        : (cell.isMovable ? '2px solid #16a34a' : '1px solid #94a3b8');
+      button.style.backgroundColor = cell.isMovable
+        ? '#dcfce7'
+        : (cell.piece ? (cell.isOwnPiece ? '#dbeafe' : '#fee2e2') : '#f8fafc');
       button.textContent = cell.piece
         ? `${cell.piece.owner}:${cell.piece.kind}(${cell.piece.currentHp})`
         : `${cell.x},${cell.y}`;
+      button.title = cell.piece
+        ? `owner: ${cell.piece.owner}\nkind: ${cell.piece.kind}\nHP: ${cell.piece.currentHp}/${cell.piece.maxHp}\nATK: ${cell.piece.attack}\nsuccessor cost: ${cell.piece.successorCost}`
+        : 'empty cell';
       button.addEventListener('click', () => {
         if (cell.piece && cell.isOwnPiece) {
           selectedPieceId = selectPiece(state, selectedPieceId, cell.piece.id);
@@ -250,10 +296,17 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
     reconnectButton.addEventListener('click', () => callbacks.onReconnect?.());
     actionRow.appendChild(reconnectButton);
 
+    const rematchButton = document.createElement('button');
+    rematchButton.type = 'button';
+    rematchButton.textContent = '再戦';
+    rematchButton.disabled = !viewModel.canRematch || !callbacks.onRematch;
+    rematchButton.addEventListener('click', () => callbacks.onRematch?.());
+    actionRow.appendChild(rematchButton);
+
     root.appendChild(actionRow);
 
-    if (viewModel.debugIncomingMessages.length > 0) {
-      const debugTitle = createTextElement('p', 'debug: server responses');
+    if (viewModel.debugMessages.length > 0) {
+      const debugTitle = createTextElement('p', 'debug: websocket messages');
       debugTitle.style.marginTop = '12px';
       root.appendChild(debugTitle);
 
@@ -263,16 +316,18 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
       debugContainer.style.backgroundColor = '#f8fafc';
       debugContainer.style.padding = '8px';
 
-      viewModel.debugIncomingMessages.forEach((message, index) => {
+      viewModel.debugMessages.forEach((entry, index) => {
         const lineButton = document.createElement('button');
         lineButton.type = 'button';
-        lineButton.textContent = summarizeIncomingMessage(message);
+        lineButton.textContent = summarizeDebugMessage(entry);
         lineButton.style.display = 'block';
         lineButton.style.width = '100%';
         lineButton.style.textAlign = 'left';
         lineButton.style.marginBottom = '4px';
-        lineButton.style.border = '1px solid #94a3b8';
-        lineButton.style.backgroundColor = expandedDebugIndex === index ? '#dbeafe' : '#ffffff';
+        lineButton.style.border = entry.direction === 'server' ? '1px solid #94a3b8' : '1px solid #f59e0b';
+        lineButton.style.backgroundColor = expandedDebugIndex === index
+          ? (entry.direction === 'server' ? '#dbeafe' : '#fef3c7')
+          : '#ffffff';
         lineButton.addEventListener('click', () => {
           expandedDebugIndex = expandedDebugIndex === index ? null : index;
           render(state);
@@ -281,7 +336,7 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
 
         if (expandedDebugIndex === index) {
           const detail = document.createElement('pre');
-          detail.textContent = formatIncomingMessage(message);
+          detail.textContent = formatDebugMessage(entry);
           detail.style.whiteSpace = 'pre-wrap';
           detail.style.wordBreak = 'break-word';
           detail.style.margin = '4px 0 8px 0';

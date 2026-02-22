@@ -39,6 +39,7 @@ export type ConnectOptions = {
   onConnectionStatusChange?: (status: ConnectionStatus) => void;
   onResyncStatusChange?: (isResyncing: boolean) => void;
   onMessage?: (message: IncomingMessage) => void;
+  onMessageSent?: (message: OutgoingMessage) => void;
   onInvalidMessage?: (raw: string) => void;
   webSocketFactory?: (url: string) => WebSocketLike;
 };
@@ -47,6 +48,7 @@ export type FrontendConnection = {
   sendIntent: (command: Command, expectedTurn: number) => void;
   requestResync: (fromSeq: number) => void;
   reconnect: () => void;
+  rematch: () => void;
   close: () => void;
 };
 
@@ -182,6 +184,7 @@ export function connect(options: ConnectOptions): FrontendConnection {
       return;
     }
 
+    options.onMessageSent?.(message);
     socket.send(JSON.stringify(message));
   };
 
@@ -194,6 +197,20 @@ export function connect(options: ConnectOptions): FrontendConnection {
   };
 
   bindSocketHandlers();
+
+
+  const rematch = () => {
+    send({
+      type: 'ADMIN',
+      payload: {
+        action: 'DESTROY_ROOM',
+      },
+    });
+
+    socket.close();
+    socket = createSocket(wsUrl);
+    bindSocketHandlers();
+  };
 
   return {
     sendIntent(command: Command, expectedTurn: number) {
@@ -211,6 +228,7 @@ export function connect(options: ConnectOptions): FrontendConnection {
       socket = createSocket(wsUrl);
       bindSocketHandlers();
     },
+    rematch,
     close() {
       socket.close();
     },
