@@ -4,7 +4,7 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   root: resolve('packages/frontend'),
   build: {
-    outDir: resolve('.pages-dist'),
+    outDir: resolve('packages/frontend/dist'),
     emptyOutDir: true,
   },
 });
