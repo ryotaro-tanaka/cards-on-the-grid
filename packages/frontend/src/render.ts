@@ -187,23 +187,6 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
       root.appendChild(alert);
     }
 
-    if (viewModel.debugIncomingMessages.length > 0) {
-      const debugTitle = createTextElement('p', 'debug: server responses');
-      root.appendChild(debugTitle);
-
-      const debugLog = document.createElement('pre');
-      debugLog.textContent = viewModel.debugIncomingMessages.join('\n');
-      debugLog.style.whiteSpace = 'pre-wrap';
-      debugLog.style.wordBreak = 'break-word';
-      debugLog.style.maxWidth = '420px';
-      debugLog.style.maxHeight = '180px';
-      debugLog.style.overflow = 'auto';
-      debugLog.style.padding = '8px';
-      debugLog.style.border = '1px solid #cbd5e1';
-      debugLog.style.backgroundColor = '#f8fafc';
-      root.appendChild(debugLog);
-    }
-
     const board = document.createElement('div');
     board.style.display = 'grid';
     board.style.gridTemplateColumns = `repeat(${viewModel.board.size}, minmax(44px, 1fr))`;
