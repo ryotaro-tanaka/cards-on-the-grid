@@ -197,6 +197,45 @@ function formatDebugMessage(entry: DebugMessage): string {
   return JSON.stringify(entry.message, null, 2);
 }
 
+
+
+
+function createPieceIcon(): HTMLImageElement {
+  const icon = document.createElement('img');
+  icon.src = '/pieces/chess-piece.svg';
+  icon.alt = 'piece icon';
+  icon.width = 20;
+  icon.height = 20;
+  icon.style.display = 'block';
+  icon.style.margin = '0 auto';
+  return icon;
+}
+
+type ZoneTone = {
+  base: string;
+  overlay: string;
+};
+
+function resolveZoneTone(y: number, you: ClientState['you']): ZoneTone {
+  if (you === 'p1') {
+    if (y === 0) return { base: '#f4f7fb', overlay: 'rgba(15, 23, 42, 0.06)' };
+    if (y === 1 || y === 2) return { base: '#f6f8fc', overlay: 'rgba(15, 23, 42, 0.03)' };
+    if (y === 6) return { base: '#f4f7fb', overlay: 'rgba(15, 23, 42, 0.06)' };
+    if (y === 4 || y === 5) return { base: '#f6f8fc', overlay: 'rgba(15, 23, 42, 0.03)' };
+    return { base: '#f8fafc', overlay: 'transparent' };
+  }
+
+  if (you === 'p2') {
+    if (y === 6) return { base: '#f4f7fb', overlay: 'rgba(15, 23, 42, 0.06)' };
+    if (y === 4 || y === 5) return { base: '#f6f8fc', overlay: 'rgba(15, 23, 42, 0.03)' };
+    if (y === 0) return { base: '#f4f7fb', overlay: 'rgba(15, 23, 42, 0.06)' };
+    if (y === 1 || y === 2) return { base: '#f6f8fc', overlay: 'rgba(15, 23, 42, 0.03)' };
+    return { base: '#f8fafc', overlay: 'transparent' };
+  }
+
+  return { base: '#f8fafc', overlay: 'transparent' };
+}
+
 export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks): DomRenderer {
   let selectedPieceId: string | null = null;
   let expandedDebugIndex: number | null = null;
@@ -240,12 +279,21 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
       button.style.border = cell.isSelected
         ? '2px solid #2563eb'
         : (cell.isMovable ? '2px solid #16a34a' : '1px solid #94a3b8');
-      button.style.backgroundColor = cell.isMovable
-        ? '#dcfce7'
-        : (cell.piece ? (cell.isOwnPiece ? '#dbeafe' : '#fee2e2') : '#f8fafc');
-      button.textContent = cell.piece
-        ? `${cell.piece.owner}:${cell.piece.kind}(${cell.piece.currentHp})`
-        : `${cell.x},${cell.y}`;
+      const zoneTone = resolveZoneTone(cell.y, state.you);
+      button.style.backgroundColor = cell.isMovable ? '#dcfce7' : zoneTone.base;
+      button.style.backgroundImage = !cell.isMovable && zoneTone.overlay !== 'transparent' ? `linear-gradient(${zoneTone.overlay}, ${zoneTone.overlay})` : 'none';
+      if (cell.piece) {
+        const pieceLabel = document.createElement('div');
+        pieceLabel.textContent = `HP:${cell.piece.currentHp} AT:${cell.piece.attack}`;
+        pieceLabel.style.fontSize = '10px';
+        pieceLabel.style.fontWeight = '700';
+        pieceLabel.style.lineHeight = '1';
+        pieceLabel.style.marginTop = '2px';
+
+        button.replaceChildren(createPieceIcon(), pieceLabel);
+      } else {
+        button.textContent = `${cell.x},${cell.y}`;
+      }
       button.title = cell.piece
         ? `owner: ${cell.piece.owner}\nkind: ${cell.piece.kind}\nHP: ${cell.piece.currentHp}/${cell.piece.maxHp}\nATK: ${cell.piece.attack}\nsuccessor cost: ${cell.piece.successorCost}`
         : 'empty cell';

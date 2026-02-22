@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="piece icon">
+  <g fill="none" stroke="#0f172a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M32 8c4 0 7 3 7 7s-3 7-7 7-7-3-7-7 3-7 7-7z" fill="#e2e8f0"/>
+    <path d="M22 30c0-6 4-10 10-10s10 4 10 10v4H22z" fill="#cbd5e1"/>
+    <path d="M18 49h28l-3-9H21z" fill="#94a3b8"/>
+    <path d="M15 56h34v4H15z" fill="#64748b"/>
+  </g>
+</svg>
