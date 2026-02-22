@@ -71,4 +71,7 @@ connection = connect({
   onMessage(message) {
     dispatch({ type: 'MESSAGE_RECEIVED', payload: message });
   },
+  onMessageSent(message) {
+    dispatch({ type: 'MESSAGE_SENT', payload: message });
+  },
 });

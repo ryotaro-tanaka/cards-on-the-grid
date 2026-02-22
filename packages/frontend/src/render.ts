@@ -1,5 +1,5 @@
 import type { Command, Coord } from '../../core/src/index.js';
-import type { ClientState, IncomingMessage, RejectReason, RoomStatus } from './types.js';
+import type { ClientState, DebugMessage, IncomingMessage, OutgoingMessage, RejectReason, RoomStatus } from './types.js';
 import { buildBoardViewModel, canAct, createEndTurnIntent, createMoveIntent, selectPiece, type BoardViewModel } from './ui.js';
 
 export type ViewModel = {
@@ -15,7 +15,7 @@ export type ViewModel = {
   selectedPieceId: string | null;
   board: BoardViewModel;
   errorMessage: string | null;
-  debugIncomingMessages: IncomingMessage[];
+  debugMessages: DebugMessage[];
 };
 
 export type RenderCallbacks = {
@@ -48,7 +48,7 @@ export function buildViewModel(state: ClientState, selectedPieceId: string | nul
     selectedPieceId,
     board: buildBoardViewModel(state, selectedPieceId),
     errorMessage,
-    debugIncomingMessages: state.debugIncomingMessages,
+    debugMessages: state.debugMessages,
   };
 }
 
@@ -165,8 +165,29 @@ function summarizeIncomingMessage(message: IncomingMessage): string {
   return `REJECT ${message.payload.reason} turn:${message.payload.expectedTurn}`;
 }
 
-function formatIncomingMessage(message: IncomingMessage): string {
-  return JSON.stringify(message, null, 2);
+function summarizeOutgoingMessage(message: OutgoingMessage): string {
+  if (message.type === 'HELLO') {
+    return `HELLO player:${message.payload.playerId ?? 'auto'}`;
+  }
+
+  if (message.type === 'INTENT') {
+    return `INTENT ${message.payload.command.intent.type} turn:${message.payload.expectedTurn}`;
+  }
+
+  return `RESYNC_REQUEST fromSeq:${message.payload.fromSeq}`;
+}
+
+function summarizeDebugMessage(entry: DebugMessage): string {
+  const prefix = entry.direction === 'server' ? 'SERVER' : 'FRONT';
+  if (entry.direction === 'server') {
+    return `${prefix} ${summarizeIncomingMessage(entry.message as IncomingMessage)}`;
+  }
+
+  return `${prefix} ${summarizeOutgoingMessage(entry.message as OutgoingMessage)}`;
+}
+
+function formatDebugMessage(entry: DebugMessage): string {
+  return JSON.stringify(entry.message, null, 2);
 }
 
 export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks): DomRenderer {
@@ -263,8 +284,8 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
 
     root.appendChild(actionRow);
 
-    if (viewModel.debugIncomingMessages.length > 0) {
-      const debugTitle = createTextElement('p', 'debug: server responses');
+    if (viewModel.debugMessages.length > 0) {
+      const debugTitle = createTextElement('p', 'debug: websocket messages');
       debugTitle.style.marginTop = '12px';
       root.appendChild(debugTitle);
 
@@ -274,16 +295,18 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
       debugContainer.style.backgroundColor = '#f8fafc';
       debugContainer.style.padding = '8px';
 
-      viewModel.debugIncomingMessages.forEach((message, index) => {
+      viewModel.debugMessages.forEach((entry, index) => {
         const lineButton = document.createElement('button');
         lineButton.type = 'button';
-        lineButton.textContent = summarizeIncomingMessage(message);
+        lineButton.textContent = summarizeDebugMessage(entry);
         lineButton.style.display = 'block';
         lineButton.style.width = '100%';
         lineButton.style.textAlign = 'left';
         lineButton.style.marginBottom = '4px';
-        lineButton.style.border = '1px solid #94a3b8';
-        lineButton.style.backgroundColor = expandedDebugIndex === index ? '#dbeafe' : '#ffffff';
+        lineButton.style.border = entry.direction === 'server' ? '1px solid #94a3b8' : '1px solid #f59e0b';
+        lineButton.style.backgroundColor = expandedDebugIndex === index
+          ? (entry.direction === 'server' ? '#dbeafe' : '#fef3c7')
+          : '#ffffff';
         lineButton.addEventListener('click', () => {
           expandedDebugIndex = expandedDebugIndex === index ? null : index;
           render(state);
@@ -292,7 +315,7 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
 
         if (expandedDebugIndex === index) {
           const detail = document.createElement('pre');
-          detail.textContent = formatIncomingMessage(message);
+          detail.textContent = formatDebugMessage(entry);
           detail.style.whiteSpace = 'pre-wrap';
           detail.style.wordBreak = 'break-word';
           detail.style.margin = '4px 0 8px 0';

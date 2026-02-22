@@ -39,6 +39,7 @@ export type ConnectOptions = {
   onConnectionStatusChange?: (status: ConnectionStatus) => void;
   onResyncStatusChange?: (isResyncing: boolean) => void;
   onMessage?: (message: IncomingMessage) => void;
+  onMessageSent?: (message: OutgoingMessage) => void;
   onInvalidMessage?: (raw: string) => void;
   webSocketFactory?: (url: string) => WebSocketLike;
 };
@@ -182,6 +183,7 @@ export function connect(options: ConnectOptions): FrontendConnection {
       return;
     }
 
+    options.onMessageSent?.(message);
     socket.send(JSON.stringify(message));
   };
 

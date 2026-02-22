@@ -15,6 +15,7 @@ import {
   resolveWebSocketBaseUrl,
   attachPwaMetadata,
   registerServiceWorker,
+  reduceClientState,
   reduceIncoming,
   selectPiece,
 } from '../packages/frontend/dist/index.js';
@@ -31,6 +32,16 @@ client = reduceIncoming(client, {
     roomStatus: 'started',
   },
 });
+
+const withOutgoing = reduceClientState(client, {
+  type: 'MESSAGE_SENT',
+  payload: {
+    type: 'RESYNC_REQUEST',
+    payload: { fromSeq: 0 },
+  },
+});
+assert.equal(withOutgoing.debugMessages.at(-1)?.direction, 'client');
+assert.equal(withOutgoing.debugMessages.at(-1)?.message.type, 'RESYNC_REQUEST');
 
 assert.equal(canAct(client), true);
 assert.equal(describeRoomStatus(client.roomStatus), 'match in progress');
@@ -149,8 +160,9 @@ assert.equal(
   buildViewModel(withReject, null).errorMessage,
   'Turn mismatch. Please resync and try again. (expected turn: 2)',
 );
-assert.equal(withReject.debugIncomingMessages.length, 2);
-assert.equal(withReject.debugIncomingMessages.at(-1)?.type, 'REJECT');
+assert.equal(withReject.debugMessages.length, 2);
+assert.equal(withReject.debugMessages.at(-1)?.direction, 'server');
+assert.equal(withReject.debugMessages.at(-1)?.message.type, 'REJECT');
 
 let cappedDebugState = client;
 for (let i = 0; i < 35; i += 1) {
@@ -162,7 +174,7 @@ for (let i = 0; i < 35; i += 1) {
     },
   });
 }
-assert.equal(cappedDebugState.debugIncomingMessages.length, 30);
+assert.equal(cappedDebugState.debugMessages.length, 30);
 
 const finishedState = {
   ...client,
@@ -225,12 +237,14 @@ globalThis.WebSocket = FakeSocket;
 const sockets = [];
 const connectionStatuses = [];
 const invalidFrames = [];
+const outgoingMessages = [];
 const connection = connect({
   baseUrl: 'ws://localhost:8787',
   roomId: 'room-1',
   playerId: 'p1',
   onConnectionStatusChange: (status) => connectionStatuses.push(status),
   onInvalidMessage: (raw) => invalidFrames.push(raw),
+  onMessageSent: (message) => outgoingMessages.push(message),
   webSocketFactory: (url) => {
     const socket = new FakeSocket(url);
     sockets.push(socket);
@@ -244,6 +258,7 @@ sockets[0].open();
 assert.equal(connectionStatuses[1], 'open');
 assert.equal(sockets[0].sent[0].type, 'HELLO');
 assert.equal(sockets[0].sent[0].payload.playerId, 'p1');
+assert.equal(outgoingMessages[0].type, 'HELLO');
 
 sockets[0].receive('{"type":"UNKNOWN"}');
 assert.equal(invalidFrames.length, 1);
