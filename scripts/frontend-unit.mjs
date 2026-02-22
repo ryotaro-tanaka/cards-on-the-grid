@@ -217,7 +217,18 @@ const vmFinished = buildViewModel(finishedState, null);
 assert.equal(vmFinished.canOperate, false);
 assert.equal(vmFinished.canEndTurn, false);
 assert.equal(vmFinished.actionAvailabilityMessage, '操作不可: 対戦は終了しています。');
-assert.equal(vmFinished.matchResultMessage, '対戦終了: あなたの勝利 (p1)');
+assert.equal(vmFinished.matchResultMessage, 'Win');
+
+
+const vmFinishedLose = buildViewModel({
+  ...finishedState,
+  you: 'p1',
+  state: {
+    ...finishedState.state,
+    winner: 'p2',
+  },
+}, null);
+assert.equal(vmFinishedLose.matchResultMessage, 'Lose');
 
 class FakeSocket {
   static CONNECTING = 0;

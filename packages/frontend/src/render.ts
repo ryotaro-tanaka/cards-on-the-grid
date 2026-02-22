@@ -139,14 +139,14 @@ function describeMatchResult(state: ClientState): string | null {
   }
 
   if (!state.state?.winner || !state.you) {
-    return '対戦終了';
+    return 'Finished';
   }
 
   if (state.state.winner === state.you) {
-    return `対戦終了: あなたの勝利 (${state.state.winner})`;
+    return 'Win';
   }
 
-  return `対戦終了: あなたの敗北 (winner: ${state.state.winner})`;
+  return 'Lose';
 }
 
 function summarizeIncomingMessage(message: IncomingMessage): string {
