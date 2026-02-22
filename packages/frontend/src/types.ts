@@ -83,7 +83,7 @@ export type ClientState = {
   seq: number;
   state: GameState | null;
   lastReject: RejectPayload | null;
-  debugIncomingMessages: string[];
+  debugIncomingMessages: IncomingMessage[];
 };
 
 export type ClientAction =

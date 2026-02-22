@@ -17,8 +17,8 @@ export function createEmptyClientState(): ClientState {
   };
 }
 
-function appendDebugIncomingMessages(current: ClientState, message: IncomingMessage): string[] {
-  const next = [...current.debugIncomingMessages, JSON.stringify(message)];
+function appendDebugIncomingMessages(current: ClientState, message: IncomingMessage): IncomingMessage[] {
+  const next = [...current.debugIncomingMessages, message];
   if (next.length <= MAX_DEBUG_MESSAGES) {
     return next;
   }

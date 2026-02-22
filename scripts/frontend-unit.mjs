@@ -146,7 +146,7 @@ assert.equal(
   'Turn mismatch. Please resync and try again. (expected turn: 2)',
 );
 assert.equal(withReject.debugIncomingMessages.length, 2);
-assert.equal(withReject.debugIncomingMessages.at(-1)?.includes('TURN_MISMATCH'), true);
+assert.equal(withReject.debugIncomingMessages.at(-1)?.type, 'REJECT');
 
 let cappedDebugState = client;
 for (let i = 0; i < 35; i += 1) {
@@ -210,6 +210,13 @@ class FakeSocket {
   }
 }
 
+
+const loggedMessages = [];
+const originalConsoleLog = console.log;
+console.log = (...args) => {
+  loggedMessages.push(args);
+};
+
 globalThis.WebSocket = FakeSocket;
 const sockets = [];
 const connectionStatuses = [];
@@ -236,6 +243,17 @@ assert.equal(sockets[0].sent[0].payload.playerId, 'p1');
 
 sockets[0].receive('{"type":"UNKNOWN"}');
 assert.equal(invalidFrames.length, 1);
+
+
+sockets[0].receive(JSON.stringify({
+  type: 'REJECT',
+  payload: {
+    reason: 'TURN_MISMATCH',
+    expectedTurn: 1,
+  },
+}));
+assert.equal(loggedMessages.some((entry) => entry[0] === '[server-response]' && entry[1].includes('TURN_MISMATCH')), true);
+
 
 connection.reconnect();
 assert.equal(sockets.length, 2);
@@ -324,4 +342,5 @@ Object.defineProperty(globalThis, 'navigator', {
 });
 assert.equal(await registerServiceWorker(), false);
 
+console.log = originalConsoleLog;
 console.log('frontend-unit: ok');
