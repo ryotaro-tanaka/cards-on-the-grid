@@ -48,6 +48,7 @@ export type FrontendConnection = {
   sendIntent: (command: Command, expectedTurn: number) => void;
   requestResync: (fromSeq: number) => void;
   reconnect: () => void;
+  rematch: () => void;
   close: () => void;
 };
 
@@ -197,6 +198,20 @@ export function connect(options: ConnectOptions): FrontendConnection {
 
   bindSocketHandlers();
 
+
+  const rematch = () => {
+    send({
+      type: 'ADMIN',
+      payload: {
+        action: 'DESTROY_ROOM',
+      },
+    });
+
+    socket.close();
+    socket = createSocket(wsUrl);
+    bindSocketHandlers();
+  };
+
   return {
     sendIntent(command: Command, expectedTurn: number) {
       send({
@@ -213,6 +228,7 @@ export function connect(options: ConnectOptions): FrontendConnection {
       socket = createSocket(wsUrl);
       bindSocketHandlers();
     },
+    rematch,
     close() {
       socket.close();
     },

@@ -218,6 +218,7 @@ assert.equal(vmFinished.canOperate, false);
 assert.equal(vmFinished.canEndTurn, false);
 assert.equal(vmFinished.actionAvailabilityMessage, '操作不可: 対戦は終了しています。');
 assert.equal(vmFinished.matchResultMessage, 'Win');
+assert.equal(vmFinished.canRematch, true);
 
 
 const vmFinishedLose = buildViewModel({
@@ -319,6 +320,14 @@ assert.equal(connectionStatuses.at(-1), 'connecting');
 sockets[1].open();
 assert.equal(sockets[1].sent[0].type, 'HELLO');
 
+connection.rematch();
+assert.equal(sockets[1].sent.at(-1)?.type, 'ADMIN');
+assert.equal(sockets[1].sent.at(-1)?.payload.action, 'DESTROY_ROOM');
+assert.equal(sockets.length, 3);
+assert.equal(connectionStatuses.at(-1), 'connecting');
+sockets[2].open();
+assert.equal(sockets[2].sent[0].type, 'HELLO');
+assert.equal(outgoingMessages.some((message) => message.type === 'ADMIN'), true);
 
 const autoSockets = [];
 const autoConnection = connect({

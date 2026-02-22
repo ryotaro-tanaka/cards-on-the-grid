@@ -12,6 +12,7 @@ export type ViewModel = {
   matchResultMessage: string | null;
   canOperate: boolean;
   canEndTurn: boolean;
+  canRematch: boolean;
   selectedPieceId: string | null;
   board: BoardViewModel;
   errorMessage: string | null;
@@ -21,6 +22,7 @@ export type ViewModel = {
 export type RenderCallbacks = {
   onSendIntent: (command: Command, expectedTurn: number) => void;
   onReconnect?: () => void;
+  onRematch?: () => void;
 };
 
 export type DomRenderer = {
@@ -45,6 +47,7 @@ export function buildViewModel(state: ClientState, selectedPieceId: string | nul
     matchResultMessage: describeMatchResult(state),
     canOperate,
     canEndTurn: canOperate,
+    canRematch: state.roomStatus === 'finished' && Boolean(state.you && state.roomId),
     selectedPieceId,
     board: buildBoardViewModel(state, selectedPieceId),
     errorMessage,
@@ -174,7 +177,11 @@ function summarizeOutgoingMessage(message: OutgoingMessage): string {
     return `INTENT ${message.payload.command.intent.type} turn:${message.payload.expectedTurn}`;
   }
 
-  return `RESYNC_REQUEST fromSeq:${message.payload.fromSeq}`;
+  if (message.type === 'RESYNC_REQUEST') {
+    return `RESYNC_REQUEST fromSeq:${message.payload.fromSeq}`;
+  }
+
+  return `ADMIN ${message.payload.action}`;
 }
 
 function summarizeDebugMessage(entry: DebugMessage): string {
@@ -288,6 +295,13 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
     reconnectButton.disabled = !callbacks.onReconnect;
     reconnectButton.addEventListener('click', () => callbacks.onReconnect?.());
     actionRow.appendChild(reconnectButton);
+
+    const rematchButton = document.createElement('button');
+    rematchButton.type = 'button';
+    rematchButton.textContent = '再戦';
+    rematchButton.disabled = !viewModel.canRematch || !callbacks.onRematch;
+    rematchButton.addEventListener('click', () => callbacks.onRematch?.());
+    actionRow.appendChild(rematchButton);
 
     root.appendChild(actionRow);
 

@@ -72,7 +72,15 @@ export type ResyncRequestMessage = {
   };
 };
 
-export type OutgoingMessage = HelloMessage | IntentMessage | ResyncRequestMessage;
+
+export type AdminMessage = {
+  type: 'ADMIN';
+  payload: {
+    action: 'DESTROY_ROOM';
+  };
+};
+
+export type OutgoingMessage = HelloMessage | IntentMessage | ResyncRequestMessage | AdminMessage;
 
 export type DebugMessage = {
   direction: 'server' | 'client';

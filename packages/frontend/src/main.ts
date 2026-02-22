@@ -27,6 +27,9 @@ const renderer = createDomRenderer(root, {
   onReconnect() {
     connection?.reconnect();
   },
+  onRematch() {
+    connection?.rematch();
+  },
 });
 
 const params = new URLSearchParams(window.location.search);
