@@ -72,7 +72,20 @@ export type ResyncRequestMessage = {
   };
 };
 
-export type OutgoingMessage = HelloMessage | IntentMessage | ResyncRequestMessage;
+
+export type AdminMessage = {
+  type: 'ADMIN';
+  payload: {
+    action: 'DESTROY_ROOM';
+  };
+};
+
+export type OutgoingMessage = HelloMessage | IntentMessage | ResyncRequestMessage | AdminMessage;
+
+export type DebugMessage = {
+  direction: 'server' | 'client';
+  message: IncomingMessage | OutgoingMessage;
+};
 
 export type ClientState = {
   connectionStatus: ConnectionStatus;
@@ -83,10 +96,11 @@ export type ClientState = {
   seq: number;
   state: GameState | null;
   lastReject: RejectPayload | null;
-  debugIncomingMessages: IncomingMessage[];
+  debugMessages: DebugMessage[];
 };
 
 export type ClientAction =
   | { type: 'CONNECTION_STATUS_CHANGED'; payload: { status: ConnectionStatus } }
   | { type: 'RESYNC_STATUS_CHANGED'; payload: { isResyncing: boolean } }
-  | { type: 'MESSAGE_RECEIVED'; payload: IncomingMessage };
+  | { type: 'MESSAGE_RECEIVED'; payload: IncomingMessage }
+  | { type: 'MESSAGE_SENT'; payload: OutgoingMessage };

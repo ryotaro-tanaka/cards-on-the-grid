@@ -1,5 +1,5 @@
 import { applyEvent } from '../../core/src/index.js';
-import type { ClientAction, ClientState, IncomingMessage } from './types.js';
+import type { ClientAction, ClientState, DebugMessage, IncomingMessage, OutgoingMessage } from './types.js';
 
 const MAX_DEBUG_MESSAGES = 30;
 
@@ -13,12 +13,12 @@ export function createEmptyClientState(): ClientState {
     seq: 0,
     state: null,
     lastReject: null,
-    debugIncomingMessages: [],
+    debugMessages: [],
   };
 }
 
-function appendDebugIncomingMessages(current: ClientState, message: IncomingMessage): IncomingMessage[] {
-  const next = [...current.debugIncomingMessages, message];
+function appendDebugMessages(current: ClientState, debugMessage: DebugMessage): DebugMessage[] {
+  const next = [...current.debugMessages, debugMessage];
   if (next.length <= MAX_DEBUG_MESSAGES) {
     return next;
   }
@@ -27,7 +27,7 @@ function appendDebugIncomingMessages(current: ClientState, message: IncomingMess
 }
 
 export function reduceIncoming(current: ClientState, message: IncomingMessage): ClientState {
-  const debugIncomingMessages = appendDebugIncomingMessages(current, message);
+  const debugMessages = appendDebugMessages(current, { direction: 'server', message });
 
   if (message.type === 'WELCOME') {
     return {
@@ -39,7 +39,7 @@ export function reduceIncoming(current: ClientState, message: IncomingMessage): 
       seq: message.payload.seq,
       state: message.payload.state,
       lastReject: null,
-      debugIncomingMessages,
+      debugMessages,
     };
   }
 
@@ -55,7 +55,7 @@ export function reduceIncoming(current: ClientState, message: IncomingMessage): 
       seq: message.payload.seq,
       state: message.payload.state,
       lastReject: null,
-      debugIncomingMessages,
+      debugMessages,
     };
   }
 
@@ -63,7 +63,7 @@ export function reduceIncoming(current: ClientState, message: IncomingMessage): 
     return {
       ...current,
       lastReject: message.payload,
-      debugIncomingMessages,
+      debugMessages,
     };
   }
 
@@ -84,7 +84,14 @@ export function reduceIncoming(current: ClientState, message: IncomingMessage): 
     roomStatus: nextState.status === 'Finished' ? 'finished' : current.roomStatus,
     state: nextState,
     lastReject: null,
-    debugIncomingMessages,
+    debugMessages,
+  };
+}
+
+function reduceOutgoing(current: ClientState, message: OutgoingMessage): ClientState {
+  return {
+    ...current,
+    debugMessages: appendDebugMessages(current, { direction: 'client', message }),
   };
 }
 
@@ -101,6 +108,10 @@ export function reduceClientState(current: ClientState, action: ClientAction): C
       ...current,
       isResyncing: action.payload.isResyncing,
     };
+  }
+
+  if (action.type === 'MESSAGE_SENT') {
+    return reduceOutgoing(current, action.payload);
   }
 
   return reduceIncoming(current, action.payload);

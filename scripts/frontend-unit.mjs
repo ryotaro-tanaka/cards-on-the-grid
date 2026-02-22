@@ -9,11 +9,13 @@ import {
   createEndTurnIntent,
   createMoveIntent,
   describeConnectionStatus,
+  describePlayerSeat,
   describeRejectReason,
   describeRoomStatus,
   resolveWebSocketBaseUrl,
   attachPwaMetadata,
   registerServiceWorker,
+  reduceClientState,
   reduceIncoming,
   selectPiece,
 } from '../packages/frontend/dist/index.js';
@@ -31,8 +33,20 @@ client = reduceIncoming(client, {
   },
 });
 
+const withOutgoing = reduceClientState(client, {
+  type: 'MESSAGE_SENT',
+  payload: {
+    type: 'RESYNC_REQUEST',
+    payload: { fromSeq: 0 },
+  },
+});
+assert.equal(withOutgoing.debugMessages.at(-1)?.direction, 'client');
+assert.equal(withOutgoing.debugMessages.at(-1)?.message.type, 'RESYNC_REQUEST');
+
 assert.equal(canAct(client), true);
 assert.equal(describeRoomStatus(client.roomStatus), 'match in progress');
+assert.equal(describePlayerSeat(client.you), 'あなたの席: p1');
+assert.equal(describePlayerSeat(null), 'あなたの席: 割り当て待ち');
 assert.equal(describeConnectionStatus('closed', false), 'disconnected (you can reconnect)');
 
 assert.equal(
@@ -63,19 +77,39 @@ assert.equal(
 const board = buildBoardViewModel(client, null);
 assert.equal(board.size, 7);
 assert.equal(board.cells.length, 49);
+assert.equal(board.cells[0].piece?.owner, 'p2');
+assert.equal(board.cells.at(-1)?.piece?.owner, 'p1');
 const ownPieceCell = board.cells.find((cell) => cell.piece?.owner === 'p1');
 assert.ok(ownPieceCell && ownPieceCell.piece);
 const ownPieceId = ownPieceCell?.piece?.id ?? '';
-assert.equal(ownPieceCell?.isOwnPiece, true);
+assert.equal(ownPieceCell?.piece?.attack, 1);
+assert.equal(ownPieceCell?.piece?.maxHp, 1);
+assert.equal(ownPieceCell?.piece?.successorCost, 1);
+
+const boardForP2 = buildBoardViewModel({ ...client, you: 'p2' }, null);
+assert.equal(boardForP2.cells[0].piece?.owner, 'p1');
+assert.equal(boardForP2.cells.at(-1)?.piece?.owner, 'p2');
 
 const selected = selectPiece(client, null, ownPieceId);
 assert.equal(selected, ownPieceId);
+
+
+const boardWithSelection = buildBoardViewModel(client, ownPieceId);
+assert.equal(boardWithSelection.cells.some((cell) => cell.isMovable), true);
+assert.equal(
+  boardWithSelection.cells.some((cell) =>
+    cell.piece?.owner === 'p1'
+    && cell.piece.id !== ownPieceId
+    && cell.isMovable),
+  false,
+);
 
 const vm = buildViewModel(client, selected);
 assert.equal(vm.canOperate, true);
 assert.equal(vm.canEndTurn, true);
 assert.equal(vm.selectedPieceId, selected);
 assert.equal(vm.roomStatusLabel, 'match in progress');
+assert.equal(vm.playerSeatLabel, 'あなたの席: p1');
 assert.equal(vm.actionAvailabilityMessage, '操作可能: あなたのターンです。');
 assert.equal(vm.connectionLabel, 'disconnected (you can reconnect)');
 assert.equal(vm.board.cells.find((cell) => cell.piece?.id === selected)?.isSelected, true);
@@ -113,6 +147,15 @@ if (!blockedMove.ok) {
 const vmBlocked = buildViewModel(notYourTurnState, null);
 assert.equal(vmBlocked.actionAvailabilityMessage, '操作不可: 相手(p2)のターンです。');
 
+const movedAlreadyState = {
+  ...client,
+  state: {
+    ...client.state,
+    turnState: { movedPieceIds: [ownPieceId] },
+  },
+};
+assert.equal(buildBoardViewModel(movedAlreadyState, ownPieceId).cells.some((cell) => cell.isMovable), false);
+
 const waitingState = {
   ...client,
   roomStatus: 'waiting',
@@ -145,8 +188,9 @@ assert.equal(
   buildViewModel(withReject, null).errorMessage,
   'Turn mismatch. Please resync and try again. (expected turn: 2)',
 );
-assert.equal(withReject.debugIncomingMessages.length, 2);
-assert.equal(withReject.debugIncomingMessages.at(-1)?.type, 'REJECT');
+assert.equal(withReject.debugMessages.length, 2);
+assert.equal(withReject.debugMessages.at(-1)?.direction, 'server');
+assert.equal(withReject.debugMessages.at(-1)?.message.type, 'REJECT');
 
 let cappedDebugState = client;
 for (let i = 0; i < 35; i += 1) {
@@ -158,7 +202,7 @@ for (let i = 0; i < 35; i += 1) {
     },
   });
 }
-assert.equal(cappedDebugState.debugIncomingMessages.length, 30);
+assert.equal(cappedDebugState.debugMessages.length, 30);
 
 const finishedState = {
   ...client,
@@ -173,7 +217,19 @@ const vmFinished = buildViewModel(finishedState, null);
 assert.equal(vmFinished.canOperate, false);
 assert.equal(vmFinished.canEndTurn, false);
 assert.equal(vmFinished.actionAvailabilityMessage, '操作不可: 対戦は終了しています。');
-assert.equal(vmFinished.matchResultMessage, '対戦終了: あなたの勝利 (p1)');
+assert.equal(vmFinished.matchResultMessage, 'Win');
+assert.equal(vmFinished.canRematch, true);
+
+
+const vmFinishedLose = buildViewModel({
+  ...finishedState,
+  you: 'p1',
+  state: {
+    ...finishedState.state,
+    winner: 'p2',
+  },
+}, null);
+assert.equal(vmFinishedLose.matchResultMessage, 'Lose');
 
 class FakeSocket {
   static CONNECTING = 0;
@@ -221,12 +277,14 @@ globalThis.WebSocket = FakeSocket;
 const sockets = [];
 const connectionStatuses = [];
 const invalidFrames = [];
+const outgoingMessages = [];
 const connection = connect({
   baseUrl: 'ws://localhost:8787',
   roomId: 'room-1',
   playerId: 'p1',
   onConnectionStatusChange: (status) => connectionStatuses.push(status),
   onInvalidMessage: (raw) => invalidFrames.push(raw),
+  onMessageSent: (message) => outgoingMessages.push(message),
   webSocketFactory: (url) => {
     const socket = new FakeSocket(url);
     sockets.push(socket);
@@ -240,6 +298,7 @@ sockets[0].open();
 assert.equal(connectionStatuses[1], 'open');
 assert.equal(sockets[0].sent[0].type, 'HELLO');
 assert.equal(sockets[0].sent[0].payload.playerId, 'p1');
+assert.equal(outgoingMessages[0].type, 'HELLO');
 
 sockets[0].receive('{"type":"UNKNOWN"}');
 assert.equal(invalidFrames.length, 1);
@@ -261,6 +320,14 @@ assert.equal(connectionStatuses.at(-1), 'connecting');
 sockets[1].open();
 assert.equal(sockets[1].sent[0].type, 'HELLO');
 
+connection.rematch();
+assert.equal(sockets[1].sent.at(-1)?.type, 'ADMIN');
+assert.equal(sockets[1].sent.at(-1)?.payload.action, 'DESTROY_ROOM');
+assert.equal(sockets.length, 3);
+assert.equal(connectionStatuses.at(-1), 'connecting');
+sockets[2].open();
+assert.equal(sockets[2].sent[0].type, 'HELLO');
+assert.equal(outgoingMessages.some((message) => message.type === 'ADMIN'), true);
 
 const autoSockets = [];
 const autoConnection = connect({
