@@ -4,6 +4,7 @@ import { buildBoardViewModel, canAct, createEndTurnIntent, createMoveIntent, sel
 
 export type ViewModel = {
   roomLabel: string;
+  playerSeatLabel: string;
   roomStatusLabel: string;
   turnLabel: string;
   connectionLabel: string;
@@ -36,6 +37,7 @@ export function buildViewModel(state: ClientState, selectedPieceId: string | nul
 
   return {
     roomLabel,
+    playerSeatLabel: describePlayerSeat(state.you),
     roomStatusLabel: describeRoomStatus(state.roomStatus),
     turnLabel,
     connectionLabel: describeConnectionStatus(state.connectionStatus, state.isResyncing),
@@ -64,6 +66,14 @@ export function describeRoomStatus(status: RoomStatus | null): string {
   }
 
   return 'room status unknown';
+}
+
+export function describePlayerSeat(playerId: ClientState['you']): string {
+  if (!playerId) {
+    return 'あなたの席: 割り当て待ち';
+  }
+
+  return `あなたの席: ${playerId}`;
 }
 
 export function describeConnectionStatus(connectionStatus: ClientState['connectionStatus'], isResyncing: boolean): string {
@@ -172,6 +182,7 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
     root.appendChild(title);
 
     root.appendChild(createTextElement('p', viewModel.roomLabel));
+    root.appendChild(createTextElement('p', viewModel.playerSeatLabel));
     root.appendChild(createTextElement('p', viewModel.roomStatusLabel));
     root.appendChild(createTextElement('p', viewModel.turnLabel));
     root.appendChild(createTextElement('p', viewModel.connectionLabel));

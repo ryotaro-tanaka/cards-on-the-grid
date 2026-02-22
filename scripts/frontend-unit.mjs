@@ -9,6 +9,7 @@ import {
   createEndTurnIntent,
   createMoveIntent,
   describeConnectionStatus,
+  describePlayerSeat,
   describeRejectReason,
   describeRoomStatus,
   resolveWebSocketBaseUrl,
@@ -33,6 +34,8 @@ client = reduceIncoming(client, {
 
 assert.equal(canAct(client), true);
 assert.equal(describeRoomStatus(client.roomStatus), 'match in progress');
+assert.equal(describePlayerSeat(client.you), 'あなたの席: p1');
+assert.equal(describePlayerSeat(null), 'あなたの席: 割り当て待ち');
 assert.equal(describeConnectionStatus('closed', false), 'disconnected (you can reconnect)');
 
 assert.equal(
@@ -76,6 +79,7 @@ assert.equal(vm.canOperate, true);
 assert.equal(vm.canEndTurn, true);
 assert.equal(vm.selectedPieceId, selected);
 assert.equal(vm.roomStatusLabel, 'match in progress');
+assert.equal(vm.playerSeatLabel, 'あなたの席: p1');
 assert.equal(vm.actionAvailabilityMessage, '操作可能: あなたのターンです。');
 assert.equal(vm.connectionLabel, 'disconnected (you can reconnect)');
 assert.equal(vm.board.cells.find((cell) => cell.piece?.id === selected)?.isSelected, true);
