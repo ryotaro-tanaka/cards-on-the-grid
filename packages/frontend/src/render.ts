@@ -199,6 +199,29 @@ function formatDebugMessage(entry: DebugMessage): string {
 
 
 
+
+const PIECE_ICON_SVG = encodeURIComponent(
+  `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>
+    <g fill='none' stroke='#0f172a' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'>
+      <path d='M32 8c4 0 7 3 7 7s-3 7-7 7-7-3-7-7 3-7 7-7z' fill='#e2e8f0'/>
+      <path d='M22 30c0-6 4-10 10-10s10 4 10 10v4H22z' fill='#cbd5e1'/>
+      <path d='M18 49h28l-3-9H21z' fill='#94a3b8'/>
+      <path d='M15 56h34v4H15z' fill='#64748b'/>
+    </g>
+  </svg>`,
+);
+
+function createPieceIcon(): HTMLImageElement {
+  const icon = document.createElement('img');
+  icon.src = `data:image/svg+xml,${PIECE_ICON_SVG}`;
+  icon.alt = 'piece icon';
+  icon.width = 20;
+  icon.height = 20;
+  icon.style.display = 'block';
+  icon.style.margin = '0 auto';
+  return icon;
+}
+
 type ZoneTone = {
   base: string;
   overlay: string;
@@ -271,9 +294,18 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
       const pieceColor = cell.piece ? (cell.isOwnPiece ? '#dbeafe' : '#fee2e2') : null;
       button.style.backgroundColor = cell.isMovable ? '#dcfce7' : (pieceColor ?? zoneTone.base);
       button.style.backgroundImage = !cell.isMovable && zoneTone.overlay !== 'transparent' ? `linear-gradient(${zoneTone.overlay}, ${zoneTone.overlay})` : 'none';
-      button.textContent = cell.piece
-        ? `${cell.piece.owner}:${cell.piece.kind}(${cell.piece.currentHp})`
-        : `${cell.x},${cell.y}`;
+      if (cell.piece) {
+        const pieceLabel = document.createElement('div');
+        pieceLabel.textContent = `${cell.piece.currentHp}`;
+        pieceLabel.style.fontSize = '11px';
+        pieceLabel.style.fontWeight = '700';
+        pieceLabel.style.lineHeight = '1';
+        pieceLabel.style.marginTop = '2px';
+
+        button.replaceChildren(createPieceIcon(), pieceLabel);
+      } else {
+        button.textContent = `${cell.x},${cell.y}`;
+      }
       button.title = cell.piece
         ? `owner: ${cell.piece.owner}\nkind: ${cell.piece.kind}\nHP: ${cell.piece.currentHp}/${cell.piece.maxHp}\nATK: ${cell.piece.attack}\nsuccessor cost: ${cell.piece.successorCost}`
         : 'empty cell';
