@@ -59,15 +59,12 @@ export function validateIntent(state: GameState, command: Command): ValidationRe
     return { ok: false, reason: 'INVALID_MOVE_DISTANCE' };
   }
 
-  const occupiedByAlly = state.pieces.some(
+  const occupied = state.pieces.some(
     (other) =>
-      other.id !== piece.id &&
-      other.owner === actorPlayerId &&
-      other.position.x === intent.to.x &&
-      other.position.y === intent.to.y,
+      other.id !== piece.id && other.position.x === intent.to.x && other.position.y === intent.to.y,
   );
 
-  if (occupiedByAlly) {
+  if (occupied) {
     return { ok: false, reason: 'CELL_OCCUPIED' };
   }
 

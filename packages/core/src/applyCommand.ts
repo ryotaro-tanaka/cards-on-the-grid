@@ -43,6 +43,10 @@ function determineWinner(state: GameState): PlayerId | null {
   return null;
 }
 
+function forwardDelta(state: GameState, owner: PlayerId): 1 | -1 {
+  return isFirstPlayer(state, owner) ? 1 : -1;
+}
+
 function buildEvents(state: GameState, command: Command): Event[] {
   const { intent } = command;
 
@@ -104,49 +108,42 @@ function buildEvents(state: GameState, command: Command): Event[] {
     throw new Error('buildEvents called with invalid state: attacker piece not found');
   }
 
-  const defender = state.pieces.find(
-    (piece) =>
-      piece.owner !== command.actorPlayerId &&
-      piece.position.x === intent.to.x &&
-      piece.position.y === intent.to.y,
+  const nextEvents: Event[] = [
+    {
+      type: 'PieceMoved',
+      pieceId: attacker.id,
+      from: attacker.position,
+      to: intent.to,
+    },
+  ];
+
+  const range = attacker.kind === 'Lancer' ? 2 : 1;
+  const delta = forwardDelta(state, attacker.owner);
+  const targetYValues = Array.from({ length: range }, (_, index) => intent.to.y + delta * (index + 1)).filter(
+    (y) => y >= 0 && y < 7,
   );
 
-  if (!defender) {
-    return [
-      {
-        type: 'PieceMoved',
-        pieceId: intent.pieceId,
-        from: attacker.position,
-        to: intent.to,
-      },
-    ];
-  }
+  const defenders = state.pieces.filter(
+    (piece) =>
+      piece.owner !== attacker.owner && piece.position.x === intent.to.x && targetYValues.includes(piece.position.y),
+  );
 
-  const damage = attacker.stats.attack;
-  const defenderHpAfter = defender.currentHp - damage;
-  const defenderDefeated = defenderHpAfter <= 0;
+  for (const defender of defenders) {
+    const damage = attacker.stats.attack;
+    const defenderHpAfter = defender.currentHp - damage;
+    const defenderDefeated = defenderHpAfter <= 0;
 
-  const events: Event[] = [
-    {
+    nextEvents.push({
       type: 'CombatResolved',
       attackerPieceId: attacker.id,
       defenderPieceId: defender.id,
       damage,
       defenderHpAfter,
       defenderDefeated,
-    },
-  ];
-
-  if (defenderDefeated) {
-    events.push({
-      type: 'PieceMoved',
-      pieceId: intent.pieceId,
-      from: attacker.position,
-      to: intent.to,
     });
   }
 
-  return events;
+  return nextEvents;
 }
 
 export function applyCommand(
