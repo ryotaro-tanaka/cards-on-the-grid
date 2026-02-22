@@ -1,7 +1,9 @@
 import {
+  ALL_CREATURE_KINDS,
   applyCommand,
   createInitialState,
   type Command,
+  type CreatureKind,
   type Event,
   type GameState,
   type InvalidReason,
@@ -61,6 +63,19 @@ export function createRoomState(roomId: string): RoomState {
   };
 }
 
+function pickUniqueInitialCreatures(random: RandomSource): [CreatureKind, CreatureKind, CreatureKind] {
+  const pool = [...ALL_CREATURE_KINDS];
+  const picked: CreatureKind[] = [];
+
+  for (let i = 0; i < 3; i += 1) {
+    const index = Math.floor(random() * pool.length);
+    const [kind] = pool.splice(index, 1);
+    picked.push(kind);
+  }
+
+  return [picked[0], picked[1], picked[2]];
+}
+
 export function resolvePlayerId(room: RoomState, rawPlayerId: string): PlayerId | null {
   return room.game.players.find((playerId) => playerId === rawPlayerId) ?? null;
 }
@@ -72,12 +87,20 @@ export function markRoomStarted(room: RoomState, random: RandomSource = Math.ran
 
   const [firstPlayer, secondPlayer] = room.game.players;
   const activePlayer = random() < 0.5 ? firstPlayer : secondPlayer;
+  const p1Creatures = pickUniqueInitialCreatures(random);
+  const p2Creatures = pickUniqueInitialCreatures(random);
 
   return {
     ...room,
     lifecycle: 'started',
     game: {
-      ...room.game,
+      ...createInitialState({
+        players: room.game.players,
+        creaturesByPlayer: {
+          p1: p1Creatures,
+          p2: p2Creatures,
+        },
+      }),
       activePlayer,
     },
   };

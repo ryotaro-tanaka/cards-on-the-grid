@@ -243,6 +243,32 @@ if (!invalidSeat.ok) {
 const randomStartP1 = startRoom(openRoom('room-random-1'), () => 0.1);
 assert.equal(randomStartP1.lifecycle, 'started');
 assert.equal(randomStartP1.game.activePlayer, 'p1');
+assert.deepEqual(
+  randomStartP1.game.pieces.filter((piece) => piece.owner === 'p1').map((piece) => piece.position),
+  [
+    { x: 1, y: 1 },
+    { x: 3, y: 1 },
+    { x: 5, y: 1 },
+  ],
+);
+assert.deepEqual(
+  randomStartP1.game.pieces.filter((piece) => piece.owner === 'p2').map((piece) => piece.position),
+  [
+    { x: 1, y: 5 },
+    { x: 3, y: 5 },
+    { x: 5, y: 5 },
+  ],
+);
+assert.equal(
+  new Set(randomStartP1.game.pieces.filter((piece) => piece.owner === 'p1').map((piece) => piece.kind))
+    .size,
+  3,
+);
+assert.equal(
+  new Set(randomStartP1.game.pieces.filter((piece) => piece.owner === 'p2').map((piece) => piece.kind))
+    .size,
+  3,
+);
 
 const randomStartP2 = startRoom(openRoom('room-random-2'), () => 0.9);
 assert.equal(randomStartP2.lifecycle, 'started');

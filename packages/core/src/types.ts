@@ -3,7 +3,16 @@ export type PieceId = string;
 
 export type Coord = { x: number; y: number };
 
-export type CreatureKind = 'Ameba' | 'Goblin' | 'Soldier';
+export type CreatureKind =
+  | 'Ameba'
+  | 'Goblin'
+  | 'Soldier'
+  | 'Lancer'
+  | 'Hobgoblin'
+  | 'Ninja'
+  | 'Bomber'
+  | 'GiantBoa'
+  | 'Alchemist';
 
 export type CreatureStats = {
   maxHp: number;
