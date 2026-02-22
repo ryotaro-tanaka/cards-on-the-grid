@@ -25,3 +25,6 @@ tasks/.verify_*.err
 .pages-dist/
 
 !packages/frontend/.env.example
+
+# note
+docs/note.md
