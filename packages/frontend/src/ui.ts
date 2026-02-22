@@ -34,7 +34,7 @@ export function canAct(state: ClientState): boolean {
     return false;
   }
 
-  return state.roomStatus === 'started' && state.state.activePlayer === state.you;
+  return state.roomStatus === 'started' && state.state.status !== 'Finished' && state.state.activePlayer === state.you;
 }
 
 export function buildBoardViewModel(state: ClientState, selectedPieceId: string | null): BoardViewModel {

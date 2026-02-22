@@ -1,6 +1,8 @@
 import { applyEvent } from '../../core/dist/index.js';
 import type { ClientAction, ClientState, IncomingMessage } from './types.js';
 
+const MAX_DEBUG_MESSAGES = 30;
+
 export function createEmptyClientState(): ClientState {
   return {
     connectionStatus: 'closed',
@@ -11,10 +13,22 @@ export function createEmptyClientState(): ClientState {
     seq: 0,
     state: null,
     lastReject: null,
+    debugIncomingMessages: [],
   };
 }
 
+function appendDebugIncomingMessages(current: ClientState, message: IncomingMessage): string[] {
+  const next = [...current.debugIncomingMessages, JSON.stringify(message)];
+  if (next.length <= MAX_DEBUG_MESSAGES) {
+    return next;
+  }
+
+  return next.slice(next.length - MAX_DEBUG_MESSAGES);
+}
+
 export function reduceIncoming(current: ClientState, message: IncomingMessage): ClientState {
+  const debugIncomingMessages = appendDebugIncomingMessages(current, message);
+
   if (message.type === 'WELCOME') {
     return {
       ...current,
@@ -25,6 +39,7 @@ export function reduceIncoming(current: ClientState, message: IncomingMessage): 
       seq: message.payload.seq,
       state: message.payload.state,
       lastReject: null,
+      debugIncomingMessages,
     };
   }
 
@@ -40,6 +55,7 @@ export function reduceIncoming(current: ClientState, message: IncomingMessage): 
       seq: message.payload.seq,
       state: message.payload.state,
       lastReject: null,
+      debugIncomingMessages,
     };
   }
 
@@ -47,6 +63,7 @@ export function reduceIncoming(current: ClientState, message: IncomingMessage): 
     return {
       ...current,
       lastReject: message.payload,
+      debugIncomingMessages,
     };
   }
 
@@ -58,12 +75,16 @@ export function reduceIncoming(current: ClientState, message: IncomingMessage): 
     return current;
   }
 
+  const nextState = applyEvent(current.state, message.payload.event);
+
   return {
     ...current,
     isResyncing: false,
     seq: message.payload.seq,
-    state: applyEvent(current.state, message.payload.event),
+    roomStatus: nextState.status === 'Finished' ? 'finished' : current.roomStatus,
+    state: nextState,
     lastReject: null,
+    debugIncomingMessages,
   };
 }
 

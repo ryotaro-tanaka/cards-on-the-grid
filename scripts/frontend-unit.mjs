@@ -119,6 +119,20 @@ const waitingState = {
 };
 assert.equal(buildViewModel(waitingState, null).actionAvailabilityMessage, '操作待機中: 対戦開始を待っています。');
 
+
+const finishedByEvent = reduceIncoming(client, {
+  type: 'EVENT',
+  payload: {
+    seq: 1,
+    event: {
+      type: 'GameFinished',
+      winner: 'p1',
+    },
+  },
+});
+assert.equal(finishedByEvent.roomStatus, 'finished');
+assert.equal(canAct(finishedByEvent), false);
+
 const withReject = reduceIncoming(client, {
   type: 'REJECT',
   payload: {
@@ -131,6 +145,20 @@ assert.equal(
   buildViewModel(withReject, null).errorMessage,
   'Turn mismatch. Please resync and try again. (expected turn: 2)',
 );
+assert.equal(withReject.debugIncomingMessages.length, 2);
+assert.equal(withReject.debugIncomingMessages.at(-1)?.includes('TURN_MISMATCH'), true);
+
+let cappedDebugState = client;
+for (let i = 0; i < 35; i += 1) {
+  cappedDebugState = reduceIncoming(cappedDebugState, {
+    type: 'REJECT',
+    payload: {
+      reason: 'TURN_MISMATCH',
+      expectedTurn: i,
+    },
+  });
+}
+assert.equal(cappedDebugState.debugIncomingMessages.length, 30);
 
 const finishedState = {
   ...client,
