@@ -206,23 +206,24 @@ type ZoneTone = {
 
 function resolveZoneTone(y: number, you: ClientState['you']): ZoneTone {
   if (you === 'p1') {
-    if (y === 0) return { base: '#f5f7fb', overlay: 'rgba(59, 130, 246, 0.12)' };
-    if (y === 1 || y === 2) return { base: '#f8fafc', overlay: 'rgba(59, 130, 246, 0.06)' };
-    if (y === 6) return { base: '#f5f7fb', overlay: 'rgba(239, 68, 68, 0.12)' };
-    if (y === 4 || y === 5) return { base: '#f8fafc', overlay: 'rgba(239, 68, 68, 0.06)' };
+    if (y === 0) return { base: '#eaf0ff', overlay: 'rgba(59, 130, 246, 0.16)' };
+    if (y === 1 || y === 2) return { base: '#f2f6ff', overlay: 'rgba(59, 130, 246, 0.1)' };
+    if (y === 6) return { base: '#ffeef0', overlay: 'rgba(239, 68, 68, 0.16)' };
+    if (y === 4 || y === 5) return { base: '#fff5f5', overlay: 'rgba(239, 68, 68, 0.1)' };
     return { base: '#f8fafc', overlay: 'transparent' };
   }
 
   if (you === 'p2') {
-    if (y === 6) return { base: '#f5f7fb', overlay: 'rgba(59, 130, 246, 0.12)' };
-    if (y === 4 || y === 5) return { base: '#f8fafc', overlay: 'rgba(59, 130, 246, 0.06)' };
-    if (y === 0) return { base: '#f5f7fb', overlay: 'rgba(239, 68, 68, 0.12)' };
-    if (y === 1 || y === 2) return { base: '#f8fafc', overlay: 'rgba(239, 68, 68, 0.06)' };
+    if (y === 6) return { base: '#eaf0ff', overlay: 'rgba(59, 130, 246, 0.16)' };
+    if (y === 4 || y === 5) return { base: '#f2f6ff', overlay: 'rgba(59, 130, 246, 0.1)' };
+    if (y === 0) return { base: '#ffeef0', overlay: 'rgba(239, 68, 68, 0.16)' };
+    if (y === 1 || y === 2) return { base: '#fff5f5', overlay: 'rgba(239, 68, 68, 0.1)' };
     return { base: '#f8fafc', overlay: 'transparent' };
   }
 
   return { base: '#f8fafc', overlay: 'transparent' };
 }
+
 export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks): DomRenderer {
   let selectedPieceId: string | null = null;
   let expandedDebugIndex: number | null = null;
@@ -269,7 +270,7 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
       const zoneTone = resolveZoneTone(cell.y, state.you);
       const pieceColor = cell.piece ? (cell.isOwnPiece ? '#dbeafe' : '#fee2e2') : null;
       button.style.backgroundColor = cell.isMovable ? '#dcfce7' : (pieceColor ?? zoneTone.base);
-      button.style.backgroundImage = !cell.isMovable && cell.piece ? `linear-gradient(${zoneTone.overlay}, ${zoneTone.overlay})` : 'none';
+      button.style.backgroundImage = !cell.isMovable && zoneTone.overlay !== 'transparent' ? `linear-gradient(${zoneTone.overlay}, ${zoneTone.overlay})` : 'none';
       button.textContent = cell.piece
         ? `${cell.piece.owner}:${cell.piece.kind}(${cell.piece.currentHp})`
         : `${cell.x},${cell.y}`;
@@ -297,7 +298,7 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
 
     root.appendChild(board);
 
-    const zoneHint = createTextElement('p', '淡色: 青系=自陣(濃い行が死守陣地) / 赤系=相手陣(濃い行が死守陣地)');
+    const zoneHint = createTextElement('p', '色分け: 青系=自陣(濃い行=死守陣地) / 赤系=相手陣(濃い行=死守陣地)');
     zoneHint.style.maxWidth = '420px';
     zoneHint.style.margin = '8px 0 0 0';
     zoneHint.style.fontSize = '12px';
