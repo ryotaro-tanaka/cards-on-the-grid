@@ -36,31 +36,70 @@ function pieceAt(state, x, y) {
   assert.equal(result.events[0].type, 'PieceMoved');
 }
 
-// 正常系: 移動による自動戦闘（生存）
+// 正常系: 移動後の前方1マスへの自動戦闘（依頼ケース同等）
 {
   const initial = createInitialState();
-  const p1Ameba = initial.pieces.find((p) => p.owner === 'p1' && p.kind === 'Ameba');
-  const p2Soldier = initial.pieces.find((p) => p.owner === 'p2' && p.kind === 'Soldier');
-  assert.ok(p1Ameba && p2Soldier);
+  const p2Ameba = initial.pieces.find((p) => p.owner === 'p2' && p.kind === 'Ameba');
+  const p1Goblin = initial.pieces.find((p) => p.owner === 'p1' && p.kind === 'Goblin');
+  assert.ok(p2Ameba && p1Goblin);
+
+  const state = {
+    ...initial,
+    activePlayer: 'p2',
+    pieces: initial.pieces.map((piece) => {
+      if (piece.id === p2Ameba.id) return { ...piece, position: { x: 3, y: 4 } };
+      if (piece.id === p1Goblin.id) return { ...piece, position: { x: 3, y: 2 }, currentHp: 2 };
+      return piece;
+    }),
+    turnState: { movedPieceIds: [] },
+  };
+
+  const result = applyCommand(state, {
+    actorPlayerId: 'p2',
+    intent: { type: 'Move', pieceId: p2Ameba.id, to: { x: 3, y: 3 } },
+  });
+
+  assert.equal(result.validation.ok, true);
+  assert.equal(result.events[0].type, 'PieceMoved');
+  assert.equal(result.events[1].type, 'CombatResolved');
+  assert.equal(result.events.length, 2);
+  assert.equal(result.state.pieces.find((p) => p.id === p1Goblin.id)?.currentHp, 1);
+}
+
+// 正常系: Lancer は前方2マスを同時攻撃
+{
+  const initial = createInitialState({
+    creaturesByPlayer: {
+      p1: ['Lancer', 'Ameba', 'Soldier'],
+      p2: ['Ameba', 'Goblin', 'Soldier'],
+    },
+  });
+
+  const p1Lancer = initial.pieces.find((p) => p.owner === 'p1' && p.kind === 'Lancer');
+  const p2Ameba = initial.pieces.find((p) => p.owner === 'p2' && p.kind === 'Ameba');
+  const p2Goblin = initial.pieces.find((p) => p.owner === 'p2' && p.kind === 'Goblin');
+  assert.ok(p1Lancer && p2Ameba && p2Goblin);
 
   const state = {
     ...initial,
     pieces: initial.pieces.map((piece) => {
-      if (piece.id === p1Ameba.id) return { ...piece, position: { x: 0, y: 3 } };
-      if (piece.id === p2Soldier.id) return { ...piece, position: { x: 1, y: 2 }, currentHp: 3 };
+      if (piece.id === p1Lancer.id) return { ...piece, position: { x: 3, y: 2 } };
+      if (piece.id === p2Ameba.id) return { ...piece, position: { x: 3, y: 4 }, currentHp: 1 };
+      if (piece.id === p2Goblin.id) return { ...piece, position: { x: 3, y: 5 }, currentHp: 2 };
       return piece;
     }),
   };
 
   const result = applyCommand(state, {
     actorPlayerId: 'p1',
-    intent: { type: 'Move', pieceId: p1Ameba.id, to: { x: 1, y: 2 } },
+    intent: { type: 'Move', pieceId: p1Lancer.id, to: { x: 3, y: 3 } },
   });
 
   assert.equal(result.validation.ok, true);
-  assert.equal(result.events[0].type, 'CombatResolved');
-  assert.equal(result.events.length, 1);
-  assert.equal(pieceAt(result.state, 1, 2)?.id, p2Soldier.id);
+  assert.equal(result.events[0].type, 'PieceMoved');
+  assert.equal(result.events.filter((e) => e.type === 'CombatResolved').length, 2);
+  assert.equal(result.state.pieces.find((p) => p.id === p2Ameba.id), undefined);
+  assert.equal(result.state.pieces.find((p) => p.id === p2Goblin.id)?.currentHp, 1);
 }
 
 // 正常系: 死亡と補充
@@ -81,7 +120,7 @@ function pieceAt(state, x, y) {
 
   const combat = applyCommand(state, {
     actorPlayerId: 'p1',
-    intent: { type: 'Move', pieceId: p1Soldier.id, to: { x: 3, y: 3 } },
+    intent: { type: 'Move', pieceId: p1Soldier.id, to: { x: 3, y: 2 } },
   });
 
   assert.equal(combat.validation.ok, true);
@@ -233,6 +272,33 @@ function pieceAt(state, x, y) {
   }
 }
 
+
+// 異常系: 敵マスへの移動も禁止（重複配置）
+{
+  const initial = createInitialState();
+  const ameba = initial.pieces.find((p) => p.owner === 'p1' && p.kind === 'Ameba');
+  const enemy = initial.pieces.find((p) => p.owner === 'p2' && p.kind === 'Ameba');
+  assert.ok(ameba && enemy);
+
+  const state = {
+    ...initial,
+    pieces: initial.pieces.map((piece) => {
+      if (piece.id === ameba.id) return { ...piece, position: { x: 2, y: 2 } };
+      if (piece.id === enemy.id) return { ...piece, position: { x: 3, y: 3 } };
+      return piece;
+    }),
+  };
+
+  const result = applyCommand(state, {
+    actorPlayerId: 'p1',
+    intent: { type: 'Move', pieceId: ameba.id, to: { x: 3, y: 3 } },
+  });
+
+  assert.equal(result.validation.ok, false);
+  if (!result.validation.ok) {
+    assert.equal(result.validation.reason, 'CELL_OCCUPIED');
+  }
+}
 // 異常系: 重複配置
 {
   const initial = createInitialState();
