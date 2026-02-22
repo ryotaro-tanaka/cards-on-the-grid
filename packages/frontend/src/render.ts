@@ -230,8 +230,12 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
       button.type = 'button';
       button.disabled = !viewModel.canOperate;
       button.style.minHeight = '44px';
-      button.style.border = cell.isSelected ? '2px solid #2563eb' : '1px solid #94a3b8';
-      button.style.backgroundColor = cell.piece ? (cell.isOwnPiece ? '#dbeafe' : '#fee2e2') : '#f8fafc';
+      button.style.border = cell.isSelected
+        ? '2px solid #2563eb'
+        : (cell.isMovable ? '2px solid #16a34a' : '1px solid #94a3b8');
+      button.style.backgroundColor = cell.isMovable
+        ? '#dcfce7'
+        : (cell.piece ? (cell.isOwnPiece ? '#dbeafe' : '#fee2e2') : '#f8fafc');
       button.textContent = cell.piece
         ? `${cell.piece.owner}:${cell.piece.kind}(${cell.piece.currentHp})`
         : `${cell.x},${cell.y}`;

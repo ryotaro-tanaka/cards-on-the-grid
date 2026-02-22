@@ -93,6 +93,17 @@ assert.equal(boardForP2.cells.at(-1)?.piece?.owner, 'p2');
 const selected = selectPiece(client, null, ownPieceId);
 assert.equal(selected, ownPieceId);
 
+
+const boardWithSelection = buildBoardViewModel(client, ownPieceId);
+assert.equal(boardWithSelection.cells.some((cell) => cell.isMovable), true);
+assert.equal(
+  boardWithSelection.cells.some((cell) =>
+    cell.piece?.owner === 'p1'
+    && cell.piece.id !== ownPieceId
+    && cell.isMovable),
+  false,
+);
+
 const vm = buildViewModel(client, selected);
 assert.equal(vm.canOperate, true);
 assert.equal(vm.canEndTurn, true);
@@ -135,6 +146,15 @@ if (!blockedMove.ok) {
 
 const vmBlocked = buildViewModel(notYourTurnState, null);
 assert.equal(vmBlocked.actionAvailabilityMessage, '操作不可: 相手(p2)のターンです。');
+
+const movedAlreadyState = {
+  ...client,
+  state: {
+    ...client.state,
+    turnState: { movedPieceIds: [ownPieceId] },
+  },
+};
+assert.equal(buildBoardViewModel(movedAlreadyState, ownPieceId).cells.some((cell) => cell.isMovable), false);
 
 const waitingState = {
   ...client,
