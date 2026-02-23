@@ -1,4 +1,4 @@
-import type { Command, Coord, Piece } from '../../core/src/index.js';
+import type { CardKind, Command, Coord, Piece } from '../../core/src/index.js';
 import type { ClientState, IntentMessage } from './types.js';
 
 export const BOARD_SIZE = 7;
@@ -18,12 +18,24 @@ export type CellViewModel = {
   isSelected: boolean;
   isOwnPiece: boolean;
   isMovable: boolean;
+  isMinePlaceable: boolean;
 };
 
 export type BoardViewModel = {
   size: number;
   cells: CellViewModel[];
 };
+
+export type CardViewModel = {
+  cardId: string;
+  kind: CardKind;
+  canUse: boolean;
+  disabledReason: string | null;
+};
+
+export type UseCardIntentResult =
+  | { ok: true; message: IntentMessage; nextSelectedPieceId: string | null; clearSelectedCard: boolean }
+  | { ok: false; reason: 'CARD_NOT_SELECTED' | 'NOT_YOUR_TURN' | 'SEAT_UNASSIGNED' | 'STATE_UNAVAILABLE' | 'TARGET_REQUIRED' | 'CARD_NOT_FOUND' };
 
 export type MoveIntentResult =
   | { ok: true; message: IntentMessage; nextSelectedPieceId: null }
@@ -41,9 +53,52 @@ export function canAct(state: ClientState): boolean {
   return state.roomStatus === 'started' && state.state.status !== 'Finished' && state.state.activePlayer === state.you;
 }
 
-
 function coordKey(x: number, y: number): string {
   return `${x},${y}`;
+}
+
+function isOwnTerritory(y: number, you: string): boolean {
+  return you === 'p1' ? y === 1 || y === 2 : y === 4 || y === 5;
+}
+
+function canUseCardLocally(state: ClientState, cardId: string): { canUse: boolean; reason: string | null } {
+  if (!state.state || !state.you) {
+    return { canUse: false, reason: 'state not ready' };
+  }
+
+  if (!canAct(state)) {
+    return { canUse: false, reason: 'not your turn' };
+  }
+
+  const card = (state.state.hands[state.you] ?? []).find((item) => item.id === cardId);
+  if (!card) {
+    return { canUse: false, reason: 'card missing' };
+  }
+
+  if (card.kind === 'Stealing') {
+    const opponent = state.state.players.find((player) => player !== state.you);
+    if (!opponent || (state.state.hands[opponent] ?? []).length === 0) {
+      return { canUse: false, reason: 'opponent hand empty' };
+    }
+  }
+
+  return { canUse: true, reason: null };
+}
+
+export function buildHandViewModel(state: ClientState): CardViewModel[] {
+  if (!state.state || !state.you) {
+    return [];
+  }
+
+  return (state.state.hands[state.you] ?? []).map((card) => {
+    const local = canUseCardLocally(state, card.id);
+    return {
+      cardId: card.id,
+      kind: card.kind,
+      canUse: local.canUse,
+      disabledReason: local.reason,
+    };
+  });
 }
 
 function buildMovableCellSet(state: ClientState, selectedPieceId: string | null): Set<string> {
@@ -73,14 +128,8 @@ function buildMovableCellSet(state: ClientState, selectedPieceId: string | null)
         continue;
       }
 
-      const occupiedByAlly = state.state.pieces.some((other) =>
-        other.id !== piece.id
-        && other.owner === state.you
-        && other.position.x === toX
-        && other.position.y === toY
-      );
-
-      if (!occupiedByAlly) {
+      const occupied = state.state.pieces.some((other) => other.position.x === toX && other.position.y === toY);
+      if (!occupied) {
         result.add(coordKey(toX, toY));
       }
     }
@@ -89,9 +138,36 @@ function buildMovableCellSet(state: ClientState, selectedPieceId: string | null)
   return result;
 }
 
-export function buildBoardViewModel(state: ClientState, selectedPieceId: string | null): BoardViewModel {
+function buildMinePlaceableCellSet(state: ClientState, selectedCardId: string | null): Set<string> {
+  if (!state.state || !state.you || !selectedCardId || !canAct(state)) {
+    return new Set();
+  }
+
+  const card = (state.state.hands[state.you] ?? []).find((item) => item.id === selectedCardId);
+  if (!card || card.kind !== 'Mine') {
+    return new Set();
+  }
+
+  const set = new Set<string>();
+  for (let y = 0; y < BOARD_SIZE; y += 1) {
+    for (let x = 0; x < BOARD_SIZE; x += 1) {
+      if (isOwnTerritory(y, state.you)) {
+        set.add(coordKey(x, y));
+      }
+    }
+  }
+
+  return set;
+}
+
+export function buildBoardViewModel(
+  state: ClientState,
+  selectedPieceId: string | null,
+  selectedCardId: string | null,
+): BoardViewModel {
   const cells: CellViewModel[] = [];
   const movableCellSet = buildMovableCellSet(state, selectedPieceId);
+  const minePlaceableSet = buildMinePlaceableCellSet(state, selectedCardId);
 
   for (let displayY = 0; displayY < BOARD_SIZE; displayY += 1) {
     for (let x = 0; x < BOARD_SIZE; x += 1) {
@@ -115,6 +191,7 @@ export function buildBoardViewModel(state: ClientState, selectedPieceId: string 
         isSelected: piece?.id === selectedPieceId,
         isOwnPiece: Boolean(piece && state.you && piece.owner === state.you),
         isMovable: movableCellSet.has(coordKey(x, y)),
+        isMinePlaceable: minePlaceableSet.has(coordKey(x, y)),
       });
     }
   }
@@ -148,6 +225,165 @@ export function selectPiece(state: ClientState, selectedPieceId: string | null, 
   }
 
   return pieceId;
+}
+
+export function createUseCardIntent(
+  state: ClientState,
+  selectedCardId: string | null,
+  selectedPieceId: string | null,
+  clickedCell: Coord,
+): UseCardIntentResult {
+  if (!state.state) {
+    return { ok: false, reason: 'STATE_UNAVAILABLE' };
+  }
+
+  if (!state.you) {
+    return { ok: false, reason: 'SEAT_UNASSIGNED' };
+  }
+
+  if (!canAct(state)) {
+    return { ok: false, reason: 'NOT_YOUR_TURN' };
+  }
+
+  if (!selectedCardId) {
+    return { ok: false, reason: 'CARD_NOT_SELECTED' };
+  }
+
+  const card = (state.state.hands[state.you] ?? []).find((item) => item.id === selectedCardId);
+  if (!card) {
+    return { ok: false, reason: 'CARD_NOT_FOUND' };
+  }
+
+  const clickedPiece = state.state.pieces.find(
+    (piece) => piece.position.x === clickedCell.x && piece.position.y === clickedCell.y,
+  );
+  const opponent = state.state.players.find((playerId) => playerId !== state.you);
+
+  const base = {
+    type: 'UseCard' as const,
+    cardId: card.id,
+    cardKind: card.kind,
+  };
+
+  if (card.kind === 'Move' || card.kind === 'Assault') {
+    if (!selectedPieceId) {
+      return { ok: false, reason: 'TARGET_REQUIRED' };
+    }
+
+    return {
+      ok: true,
+      message: {
+        type: 'INTENT',
+        payload: {
+          expectedTurn: state.state.turn,
+          command: {
+            actorPlayerId: state.you,
+            intent: {
+              ...base,
+              pieceId: selectedPieceId,
+              to: clickedCell,
+            },
+          },
+        },
+      },
+      nextSelectedPieceId: null,
+      clearSelectedCard: true,
+    };
+  }
+
+  if (card.kind === 'Mine') {
+    return {
+      ok: true,
+      message: {
+        type: 'INTENT',
+        payload: {
+          expectedTurn: state.state.turn,
+          command: {
+            actorPlayerId: state.you,
+            intent: {
+              ...base,
+              to: clickedCell,
+            },
+          },
+        },
+      },
+      nextSelectedPieceId: selectedPieceId,
+      clearSelectedCard: true,
+    };
+  }
+
+  if (card.kind === 'Stealing') {
+    if (!opponent) {
+      return { ok: false, reason: 'TARGET_REQUIRED' };
+    }
+
+    return {
+      ok: true,
+      message: {
+        type: 'INTENT',
+        payload: {
+          expectedTurn: state.state.turn,
+          command: {
+            actorPlayerId: state.you,
+            intent: {
+              ...base,
+              targetPlayerId: opponent,
+            },
+          },
+        },
+      },
+      nextSelectedPieceId: selectedPieceId,
+      clearSelectedCard: true,
+    };
+  }
+
+  if (card.kind === 'Doping' || card.kind === 'Barrier' || card.kind === 'Breath' || card.kind === 'Recharge') {
+    if (!clickedPiece) {
+      return { ok: false, reason: 'TARGET_REQUIRED' };
+    }
+
+    return {
+      ok: true,
+      message: {
+        type: 'INTENT',
+        payload: {
+          expectedTurn: state.state.turn,
+          command: {
+            actorPlayerId: state.you,
+            intent: {
+              ...base,
+              pieceId: clickedPiece.id,
+            },
+          },
+        },
+      },
+      nextSelectedPieceId: selectedPieceId,
+      clearSelectedCard: true,
+    };
+  }
+
+  if (!clickedPiece) {
+    return { ok: false, reason: 'TARGET_REQUIRED' };
+  }
+
+  return {
+    ok: true,
+    message: {
+      type: 'INTENT',
+      payload: {
+        expectedTurn: state.state.turn,
+        command: {
+          actorPlayerId: state.you,
+          intent: {
+            ...base,
+            targetPieceId: clickedPiece.id,
+          },
+        },
+      },
+    },
+    nextSelectedPieceId: selectedPieceId,
+    clearSelectedCard: true,
+  };
 }
 
 export function createMoveIntent(

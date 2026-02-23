@@ -1,6 +1,6 @@
 import type { Command, Coord } from '../../core/src/index.js';
 import type { ClientState, DebugMessage, IncomingMessage, OutgoingMessage, RejectReason, RoomStatus } from './types.js';
-import { buildBoardViewModel, canAct, createEndTurnIntent, createMoveIntent, selectPiece, type BoardViewModel } from './ui.js';
+import { buildBoardViewModel, buildHandViewModel, canAct, createEndTurnIntent, createMoveIntent, createUseCardIntent, selectPiece, type BoardViewModel, type CardViewModel } from './ui.js';
 
 export type ViewModel = {
   roomLabel: string;
@@ -14,7 +14,10 @@ export type ViewModel = {
   canEndTurn: boolean;
   canRematch: boolean;
   selectedPieceId: string | null;
+  selectedCardId: string | null;
   board: BoardViewModel;
+  hand: CardViewModel[];
+  cardActionHint: string | null;
   errorMessage: string | null;
   debugMessages: DebugMessage[];
 };
@@ -29,7 +32,7 @@ export type DomRenderer = {
   render: (state: ClientState) => void;
 };
 
-export function buildViewModel(state: ClientState, selectedPieceId: string | null): ViewModel {
+export function buildViewModel(state: ClientState, selectedPieceId: string | null, selectedCardId: string | null): ViewModel {
   const roomLabel = state.roomId ? `${state.roomId} (${state.roomStatus ?? 'unknown'})` : 'room: not joined';
   const turnLabel = state.state ? `turn: ${state.state.turn} / active: ${state.state.activePlayer}` : 'turn: -';
   const canOperate = canAct(state);
@@ -49,7 +52,10 @@ export function buildViewModel(state: ClientState, selectedPieceId: string | nul
     canEndTurn: canOperate,
     canRematch: state.roomStatus === 'finished' && Boolean(state.you && state.roomId),
     selectedPieceId,
-    board: buildBoardViewModel(state, selectedPieceId),
+    selectedCardId,
+    board: buildBoardViewModel(state, selectedPieceId, selectedCardId),
+    hand: buildHandViewModel(state),
+    cardActionHint: selectedCardId ? 'カード選択中: 対象マス/駒をクリックして使用' : null,
     errorMessage,
     debugMessages: state.debugMessages,
   };
@@ -108,6 +114,16 @@ export function describeRejectReason(reason: RejectReason): string {
     SAME_POSITION: 'Target cell must be different from current position.',
     CELL_OCCUPIED: 'Target cell is occupied.',
     MOVE_ALREADY_USED_THIS_TURN: 'That piece has already moved this turn.',
+    CARD_NOT_FOUND_IN_HAND: 'Selected card does not exist in your hand.',
+    CARD_KIND_MISMATCH: 'Card kind does not match selected hand card.',
+    TARGET_PLAYER_INVALID: 'Selected target player is invalid.',
+    TARGET_PLAYER_HAND_EMPTY: 'Opponent has no card to steal.',
+    TARGET_PIECE_NOT_FOUND: 'Target piece was not found.',
+    TARGET_PIECE_NOT_OWNED_BY_ACTOR: 'Target must be your own piece.',
+    TARGET_PIECE_NOT_ENEMY: 'Target must be an enemy piece.',
+    INVALID_CARD_TARGET: 'Invalid target for this card.',
+    INVALID_CARD_DESTINATION: 'Invalid destination for this card.',
+    ACTIVE_SKILL_NOT_APPLICABLE: 'Recharge target is not applicable.',
     ROOM_FULL: 'Room is full.',
     SEAT_UNASSIGNED: 'Seat is not assigned yet.',
     INVALID_PLAYER_ID: 'Invalid player identity.',
@@ -244,10 +260,11 @@ function resolveZoneTone(y: number, you: ClientState['you']): ZoneTone {
 
 export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks): DomRenderer {
   let selectedPieceId: string | null = null;
+  let selectedCardId: string | null = null;
   let expandedDebugIndex: number | null = null;
 
   const render = (state: ClientState) => {
-    const viewModel = buildViewModel(state, selectedPieceId);
+    const viewModel = buildViewModel(state, selectedPieceId, selectedCardId);
     root.replaceChildren();
 
     const title = document.createElement('h1');
@@ -271,6 +288,45 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
       root.appendChild(alert);
     }
 
+    const handRow = document.createElement('div');
+    handRow.style.display = 'flex';
+    handRow.style.gap = '6px';
+    handRow.style.flexWrap = 'wrap';
+    handRow.style.maxWidth = '420px';
+    handRow.style.marginBottom = '8px';
+
+    viewModel.hand.forEach((card) => {
+      const cardButton = document.createElement('button');
+      cardButton.type = 'button';
+      cardButton.textContent = card.kind;
+      cardButton.title = card.disabledReason ?? card.kind;
+      cardButton.disabled = !card.canUse;
+      cardButton.style.border = viewModel.selectedCardId === card.cardId ? '2px solid #7c3aed' : '1px solid #94a3b8';
+      cardButton.addEventListener('click', () => {
+        if (card.kind === 'Stealing') {
+          const useCard = createUseCardIntent(state, card.cardId, selectedPieceId, toCoord(0, 0));
+          if (useCard.ok) {
+            callbacks.onSendIntent(useCard.message.payload.command, useCard.message.payload.expectedTurn);
+            selectedCardId = null;
+            selectedPieceId = useCard.nextSelectedPieceId;
+            render(state);
+          }
+          return;
+        }
+
+        selectedCardId = selectedCardId === card.cardId ? null : card.cardId;
+        render(state);
+      });
+      handRow.appendChild(cardButton);
+    });
+
+    if (viewModel.cardActionHint) {
+      const hint = createTextElement('p', viewModel.cardActionHint);
+      root.appendChild(hint);
+    }
+
+    root.appendChild(handRow);
+
     const board = document.createElement('div');
     board.style.display = 'grid';
     board.style.gridTemplateColumns = `repeat(${viewModel.board.size}, minmax(44px, 1fr))`;
@@ -284,9 +340,9 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
       button.style.minHeight = '44px';
       button.style.border = cell.isSelected
         ? '2px solid #2563eb'
-        : (cell.isMovable ? '2px solid #16a34a' : '1px solid #94a3b8');
+        : (cell.isMovable ? '2px solid #16a34a' : (cell.isMinePlaceable ? '2px dashed #7c3aed' : '1px solid #94a3b8'));
       const zoneTone = resolveZoneTone(cell.y, state.you);
-      button.style.backgroundColor = cell.isMovable ? '#dcfce7' : zoneTone.base;
+      button.style.backgroundColor = cell.isMovable ? '#dcfce7' : (cell.isMinePlaceable ? '#f3e8ff' : zoneTone.base);
       button.style.backgroundImage = !cell.isMovable && zoneTone.overlay !== 'transparent' ? `linear-gradient(${zoneTone.overlay}, ${zoneTone.overlay})` : 'none';
       if (cell.piece) {
         const pieceLabel = document.createElement('div');
@@ -304,6 +360,25 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
         ? `owner: ${cell.piece.owner}\nkind: ${cell.piece.kind}\nHP: ${cell.piece.currentHp}/${cell.piece.maxHp}\nATK: ${cell.piece.attack}\nsuccessor cost: ${cell.piece.successorCost}`
         : 'empty cell';
       button.addEventListener('click', () => {
+        if (selectedCardId) {
+          const useCard = createUseCardIntent(state, selectedCardId, selectedPieceId, toCoord(cell.x, cell.y));
+          if (!useCard.ok) {
+            if (cell.piece && cell.isOwnPiece) {
+              selectedPieceId = selectPiece(state, selectedPieceId, cell.piece.id);
+              render(state);
+            }
+            return;
+          }
+
+          callbacks.onSendIntent(useCard.message.payload.command, useCard.message.payload.expectedTurn);
+          selectedPieceId = useCard.nextSelectedPieceId;
+          if (useCard.clearSelectedCard) {
+            selectedCardId = null;
+          }
+          render(state);
+          return;
+        }
+
         if (cell.piece && cell.isOwnPiece) {
           selectedPieceId = selectPiece(state, selectedPieceId, cell.piece.id);
           render(state);

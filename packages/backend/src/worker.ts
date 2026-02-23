@@ -166,7 +166,7 @@ export class RoomDO {
     }
 
     if (message.type === 'RESYNC_REQUEST') {
-      const result = handleResyncRequestMessage(this.room, message);
+      const result = handleResyncRequestMessage(this.room, message, entry.playerId);
       this.room = result.room;
       this.send(entry.socket, result.outbound);
     }

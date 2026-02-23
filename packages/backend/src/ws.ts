@@ -89,6 +89,16 @@ export const REJECT_REASONS = [
   'SAME_POSITION',
   'CELL_OCCUPIED',
   'MOVE_ALREADY_USED_THIS_TURN',
+  'CARD_NOT_FOUND_IN_HAND',
+  'CARD_KIND_MISMATCH',
+  'TARGET_PLAYER_INVALID',
+  'TARGET_PLAYER_HAND_EMPTY',
+  'TARGET_PIECE_NOT_FOUND',
+  'TARGET_PIECE_NOT_OWNED_BY_ACTOR',
+  'TARGET_PIECE_NOT_ENEMY',
+  'INVALID_CARD_TARGET',
+  'INVALID_CARD_DESTINATION',
+  'ACTIVE_SKILL_NOT_APPLICABLE',
   'ROOM_FULL',
   'SEAT_UNASSIGNED',
   'INVALID_PLAYER_ID',
@@ -120,6 +130,21 @@ export function openRoom(roomId: string): RoomState {
   return createRoomState(roomId);
 }
 
+function maskPrivateStateForPlayer(state: GameState, viewer: PlayerId): GameState {
+  const opponent = state.players.find((playerId) => playerId !== viewer);
+  if (!opponent) {
+    return state;
+  }
+
+  return {
+    ...state,
+    hands: {
+      ...state.hands,
+      [opponent]: [],
+    },
+  };
+}
+
 export function startRoom(room: RoomState, random: () => number = Math.random): RoomState {
   return markRoomStarted(room, random);
 }
@@ -131,7 +156,7 @@ export function createWelcomeMessage(room: RoomState, playerId: PlayerId): Welco
       roomId: room.roomId,
       you: playerId,
       seq: room.seq,
-      state: room.game,
+      state: maskPrivateStateForPlayer(room.game, playerId),
       roomStatus: room.lifecycle,
     },
   };
@@ -186,6 +211,7 @@ export function handleIntentMessage(
 export function handleResyncRequestMessage(
   room: RoomState,
   message: ResyncRequestMessage,
+  viewerPlayerId: PlayerId,
 ): { room: RoomState; outbound: ServerMessage[] } {
   const plan = planResync(room, message.payload.fromSeq);
 
@@ -213,7 +239,7 @@ export function handleResyncRequestMessage(
         type: 'SYNC',
         payload: {
           seq: room.seq,
-          state: room.game,
+          state: maskPrivateStateForPlayer(room.game, viewerPlayerId),
           roomStatus: room.lifecycle,
         },
       },
