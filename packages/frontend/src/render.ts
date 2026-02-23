@@ -17,6 +17,7 @@ export type ViewModel = {
   selectedCardId: string | null;
   board: BoardViewModel;
   hand: CardViewModel[];
+  opponentHandCount: number | null;
   cardActionHint: string | null;
   errorMessage: string | null;
   debugMessages: DebugMessage[];
@@ -40,6 +41,9 @@ export function buildViewModel(state: ClientState, selectedPieceId: string | nul
     ? `${describeRejectReason(state.lastReject.reason)} (expected turn: ${state.lastReject.expectedTurn})`
     : null;
 
+  const opponent = state.state && state.you ? state.state.players.find((playerId) => playerId !== state.you) : null;
+  const opponentHandCount = opponent && state.state ? (state.state.hands[opponent] ?? []).length : null;
+
   return {
     roomLabel,
     playerSeatLabel: describePlayerSeat(state.you),
@@ -55,10 +59,29 @@ export function buildViewModel(state: ClientState, selectedPieceId: string | nul
     selectedCardId,
     board: buildBoardViewModel(state, selectedPieceId, selectedCardId),
     hand: buildHandViewModel(state),
+    opponentHandCount,
     cardActionHint: selectedCardId ? 'カード選択中: 対象マス/駒をクリックして使用' : null,
     errorMessage,
     debugMessages: state.debugMessages,
   };
+}
+
+function describeCardEffect(kind: CardViewModel['kind']): string {
+  const descriptions: Record<CardViewModel['kind'], string> = {
+    Move: '1マス移動（攻撃なし）',
+    Assault: '1マス移動＋攻撃あり',
+    Arrowrain: '敵1体に1ダメージ',
+    'Rock Bombardment': '自陣地内の敵1体に2ダメージ',
+    Lightning: '敵陣地内の敵1体に3ダメージ',
+    Recharge: '自軍1体の使用済みアクティブスキルを再使用可能化',
+    Doping: '自軍1体に+0/+1',
+    Barrier: '自軍1体に+1/+0',
+    Breath: '自軍1体に+1/+1',
+    Mine: '自陣地に地雷を設置',
+    Stealing: '相手手札からランダムに1枚奪取',
+  };
+
+  return descriptions[kind];
 }
 
 export function describeRoomStatus(status: RoomStatus | null): string {
@@ -290,17 +313,24 @@ export function createDomRenderer(root: HTMLElement, callbacks: RenderCallbacks)
 
     const handRow = document.createElement('div');
     handRow.style.display = 'flex';
+    handRow.style.flexDirection = 'column';
     handRow.style.gap = '6px';
-    handRow.style.flexWrap = 'wrap';
     handRow.style.maxWidth = '420px';
     handRow.style.marginBottom = '8px';
+
+    if (viewModel.opponentHandCount !== null) {
+      root.appendChild(createTextElement('p', `相手手札枚数: ${viewModel.opponentHandCount}`));
+    }
 
     viewModel.hand.forEach((card) => {
       const cardButton = document.createElement('button');
       cardButton.type = 'button';
-      cardButton.textContent = card.kind;
+      cardButton.textContent = `${card.kind}: ${describeCardEffect(card.kind)}`;
       cardButton.title = card.disabledReason ?? card.kind;
       cardButton.disabled = !card.canUse;
+      cardButton.style.display = 'block';
+      cardButton.style.width = '100%';
+      cardButton.style.textAlign = 'left';
       cardButton.style.border = viewModel.selectedCardId === card.cardId ? '2px solid #7c3aed' : '1px solid #94a3b8';
       cardButton.addEventListener('click', () => {
         if (card.kind === 'Stealing') {

@@ -146,7 +146,10 @@ function maskPrivateStateForPlayer(state: GameState, viewer: PlayerId): GameStat
     ...state,
     hands: {
       ...state.hands,
-      [opponent]: [],
+      [opponent]: (state.hands[opponent] ?? []).map((card) => ({
+        id: card.id,
+        kind: 'Move',
+      })),
     },
   };
 }
