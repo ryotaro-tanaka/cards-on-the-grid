@@ -9,3 +9,5 @@ export {
   DEFAULT_INITIAL_CREATURE_KINDS,
   createInitialState,
 } from './createInitialState.js';
+
+export { buildDrawEvents, createRngState, drawWeightedCard, nextUint64, rollIndex } from './cardSystem.js';

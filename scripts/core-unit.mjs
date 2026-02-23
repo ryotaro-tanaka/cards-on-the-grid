@@ -359,4 +359,306 @@ function pieceAt(state, x, y) {
   assert.deepEqual(replayed, result.state);
 }
 
+// 正常系: 初期手札3枚配布
+{
+  const state = createInitialState({ rngSeed: 1n });
+  assert.equal(state.hands.p1.length, 3);
+  assert.equal(state.hands.p2.length, 3);
+}
+
+// 正常系: EndTurnで次プレイヤーが1枚ドロー
+{
+  const state = createInitialState({ rngSeed: 1n });
+  const result = applyCommand(state, {
+    actorPlayerId: 'p1',
+    intent: { type: 'EndTurn' },
+  });
+
+  assert.equal(result.validation.ok, true);
+  assert.equal(result.events.some((event) => event.type === 'CardDrawn'), true);
+  assert.equal(result.state.hands.p2.length, 4);
+}
+
+// 正常系: UseCardで手札からカードが消費される
+{
+  const state = createInitialState({ rngSeed: 1n });
+  const card = state.hands.p1[0];
+  assert.ok(card);
+
+  const cardState = {
+    ...state,
+    hands: {
+      ...state.hands,
+      p1: [{ id: card.id, kind: 'Doping' }],
+    },
+  };
+  const targetPiece = cardState.pieces.find((piece) => piece.owner === 'p1');
+  assert.ok(targetPiece);
+
+  const result = applyCommand(cardState, {
+    actorPlayerId: 'p1',
+    intent: {
+      type: 'UseCard',
+      cardId: card.id,
+      cardKind: 'Doping',
+      pieceId: targetPiece.id,
+    },
+  });
+
+  assert.equal(result.validation.ok, true);
+  assert.equal(result.events[0].type, 'CardUsed');
+  assert.equal(result.state.hands.p1.length, 0);
+}
+
+
+
+// 正常系: カードMoveは攻撃なし
+{
+  const state = createInitialState({ rngSeed: 1n });
+  const piece = state.pieces.find((p) => p.owner === 'p1');
+  const enemy = state.pieces.find((p) => p.owner === 'p2');
+  assert.ok(piece && enemy);
+
+  const arranged = {
+    ...state,
+    pieces: state.pieces.map((p) => {
+      if (p.id === piece.id) return { ...p, position: { x: 3, y: 2 } };
+      if (p.id === enemy.id) return { ...p, position: { x: 3, y: 4 } };
+      return p;
+    }),
+    hands: { ...state.hands, p1: [{ id: 'c_move', kind: 'Move' }] },
+  };
+
+  const result = applyCommand(arranged, {
+    actorPlayerId: 'p1',
+    intent: { type: 'UseCard', cardId: 'c_move', cardKind: 'Move', pieceId: piece.id, to: { x: 3, y: 3 } },
+  });
+
+  assert.equal(result.events.some((e) => e.type === 'CombatResolved'), false);
+}
+
+// 正常系: Assaultは移動＋攻撃あり
+{
+  const state = createInitialState({ rngSeed: 1n });
+  const piece = state.pieces.find((p) => p.owner === 'p1');
+  const enemy = state.pieces.find((p) => p.owner === 'p2');
+  assert.ok(piece && enemy);
+
+  const arranged = {
+    ...state,
+    pieces: state.pieces.map((p) => {
+      if (p.id === piece.id) return { ...p, position: { x: 3, y: 2 }, stats: { ...p.stats, attack: 1 } };
+      if (p.id === enemy.id) return { ...p, position: { x: 3, y: 4 }, currentHp: 2 };
+      return p;
+    }),
+    hands: { ...state.hands, p1: [{ id: 'c_assault', kind: 'Assault' }] },
+  };
+
+  const result = applyCommand(arranged, {
+    actorPlayerId: 'p1',
+    intent: { type: 'UseCard', cardId: 'c_assault', cardKind: 'Assault', pieceId: piece.id, to: { x: 3, y: 3 } },
+  });
+
+  assert.equal(result.events.some((e) => e.type === 'CombatResolved'), true);
+}
+
+// 正常系: ダメージカードで死亡処理（補充キュー）
+{
+  const state = createInitialState({ rngSeed: 1n });
+  const enemy = state.pieces.find((p) => p.owner === 'p2');
+  assert.ok(enemy);
+
+  const arranged = {
+    ...state,
+    pieces: state.pieces.map((p) => (p.id === enemy.id ? { ...p, currentHp: 1 } : p)),
+    hands: { ...state.hands, p1: [{ id: 'c_arrow', kind: 'Arrowrain' }] },
+  };
+
+  const result = applyCommand(arranged, {
+    actorPlayerId: 'p1',
+    intent: { type: 'UseCard', cardId: 'c_arrow', cardKind: 'Arrowrain', targetPieceId: enemy.id },
+  });
+
+  assert.equal(result.state.pieces.some((p) => p.id === enemy.id), false);
+  assert.equal(result.state.pendingSuccessors.length > 0, true);
+}
+
+// 正常系: バフカード適用
+{
+  const state = createInitialState({ rngSeed: 1n });
+  const own = state.pieces.find((p) => p.owner === 'p1');
+  assert.ok(own);
+
+  const arranged = {
+    ...state,
+    hands: { ...state.hands, p1: [{ id: 'c_breath', kind: 'Breath' }] },
+  };
+
+  const result = applyCommand(arranged, {
+    actorPlayerId: 'p1',
+    intent: { type: 'UseCard', cardId: 'c_breath', cardKind: 'Breath', pieceId: own.id },
+  });
+
+  const buffed = result.state.pieces.find((p) => p.id === own.id);
+  assert.ok(buffed);
+  assert.equal(buffed.stats.attack, own.stats.attack + 1);
+  assert.equal(buffed.stats.maxHp, own.stats.maxHp + 1);
+}
+
+// 正常系: Mine踏破でダメージと除去
+{
+  const state = createInitialState({ rngSeed: 1n });
+  const own = state.pieces.find((p) => p.owner === 'p1');
+  assert.ok(own);
+
+  const arranged = {
+    ...state,
+    pieces: state.pieces.map((p) => (p.id === own.id ? { ...p, position: { x: 2, y: 2 }, currentHp: 2 } : p)),
+    mines: [{ owner: 'p2', position: { x: 2, y: 3 } }],
+  };
+
+  const result = applyCommand(arranged, {
+    actorPlayerId: 'p1',
+    intent: { type: 'Move', pieceId: own.id, to: { x: 2, y: 3 } },
+  });
+
+  const moved = result.state.pieces.find((p) => p.id === own.id);
+  assert.ok(moved);
+  assert.equal(moved.currentHp, 1);
+  assert.equal(result.state.mines.length, 0);
+}
+
+// 正常系: Stealingは相手手札から1枚奪取
+{
+  const state = createInitialState({ rngSeed: 1n });
+  const arranged = {
+    ...state,
+    hands: {
+      ...state.hands,
+      p1: [{ id: 'c_steal', kind: 'Stealing' }],
+      p2: [{ id: 'c_t1', kind: 'Barrier' }, { id: 'c_t2', kind: 'Mine' }],
+    },
+  };
+
+  const result = applyCommand(arranged, {
+    actorPlayerId: 'p1',
+    intent: { type: 'UseCard', cardId: 'c_steal', cardKind: 'Stealing', targetPlayerId: 'p2' },
+  });
+
+  assert.equal(result.events.some((e) => e.type === 'CardStolen'), true);
+  assert.equal(result.state.hands.p2.length, 1);
+  assert.equal(result.state.hands.p1.length, 1);
+}
+
 console.log('core-unit: ok');
+
+// フェーズ5: 各カード成功ケースを最低1件ずつ
+{
+  const base = createInitialState({ rngSeed: 7n });
+  const own = base.pieces.find((p) => p.owner === 'p1');
+  const enemy = base.pieces.find((p) => p.owner === 'p2');
+  assert.ok(own && enemy);
+
+  const cases = [
+    { kind: 'Move', intent: { type: 'UseCard', cardId: 'c1', cardKind: 'Move', pieceId: own.id, to: { x: 2, y: 1 } } },
+    { kind: 'Assault', intent: { type: 'UseCard', cardId: 'c2', cardKind: 'Assault', pieceId: own.id, to: { x: 2, y: 1 } } },
+    { kind: 'Arrowrain', intent: { type: 'UseCard', cardId: 'c3', cardKind: 'Arrowrain', targetPieceId: enemy.id } },
+    { kind: 'Rock Bombardment', intent: { type: 'UseCard', cardId: 'c4', cardKind: 'Rock Bombardment', targetPieceId: enemy.id } },
+    { kind: 'Lightning', intent: { type: 'UseCard', cardId: 'c5', cardKind: 'Lightning', targetPieceId: enemy.id } },
+    { kind: 'Recharge', intent: { type: 'UseCard', cardId: 'c6', cardKind: 'Recharge', pieceId: own.id } },
+    { kind: 'Doping', intent: { type: 'UseCard', cardId: 'c7', cardKind: 'Doping', pieceId: own.id } },
+    { kind: 'Barrier', intent: { type: 'UseCard', cardId: 'c8', cardKind: 'Barrier', pieceId: own.id } },
+    { kind: 'Breath', intent: { type: 'UseCard', cardId: 'c9', cardKind: 'Breath', pieceId: own.id } },
+    { kind: 'Mine', intent: { type: 'UseCard', cardId: 'c10', cardKind: 'Mine', to: { x: 0, y: 1 } } },
+    { kind: 'Stealing', intent: { type: 'UseCard', cardId: 'c11', cardKind: 'Stealing', targetPlayerId: 'p2' } },
+  ];
+
+  for (const c of cases) {
+    const state = {
+      ...base,
+      pieces: base.pieces.map((p) => {
+        if (p.id === own.id) {
+          return { ...p, kind: c.kind === 'Recharge' ? 'Ninja' : p.kind, activeSkillUsed: c.kind === 'Recharge' };
+        }
+        if (p.id === enemy.id) {
+          if (c.kind === 'Rock Bombardment') return { ...p, position: { x: 3, y: 2 }, currentHp: 3 };
+          if (c.kind === 'Lightning') return { ...p, position: { x: 3, y: 4 }, currentHp: 3 };
+          return { ...p, currentHp: 3 };
+        }
+        return p;
+      }),
+      hands: {
+        ...base.hands,
+        p1: [{ id: `card_${c.kind}`, kind: c.kind }],
+        p2: c.kind === 'Stealing' ? [{ id: 'enemy-card', kind: 'Barrier' }] : base.hands.p2,
+      },
+    };
+
+    const result = applyCommand(state, {
+      actorPlayerId: 'p1',
+      intent: { ...c.intent, cardId: `card_${c.kind}` },
+    });
+
+    assert.equal(result.validation.ok, true, `${c.kind} should be valid`);
+  }
+}
+
+// フェーズ5: 各カード失敗ケース（不正対象/範囲外/非手番）
+{
+  const base = createInitialState({ rngSeed: 9n });
+  const own = base.pieces.find((p) => p.owner === 'p1');
+  const enemy = base.pieces.find((p) => p.owner === 'p2');
+  assert.ok(own && enemy);
+
+  const invalidCases = [
+    { kind: 'Move', intent: { type: 'UseCard', cardId: 'bad1', cardKind: 'Move', pieceId: own.id, to: { x: 9, y: 9 } } },
+    { kind: 'Assault', intent: { type: 'UseCard', cardId: 'bad2', cardKind: 'Assault', pieceId: own.id, to: own.position } },
+    { kind: 'Arrowrain', intent: { type: 'UseCard', cardId: 'bad3', cardKind: 'Arrowrain', targetPieceId: own.id } },
+    { kind: 'Rock Bombardment', intent: { type: 'UseCard', cardId: 'bad4', cardKind: 'Rock Bombardment', targetPieceId: own.id } },
+    { kind: 'Lightning', intent: { type: 'UseCard', cardId: 'bad5', cardKind: 'Lightning', targetPieceId: own.id } },
+    { kind: 'Recharge', intent: { type: 'UseCard', cardId: 'bad6', cardKind: 'Recharge', pieceId: own.id } },
+    { kind: 'Doping', intent: { type: 'UseCard', cardId: 'bad7', cardKind: 'Doping', pieceId: enemy.id } },
+    { kind: 'Barrier', intent: { type: 'UseCard', cardId: 'bad8', cardKind: 'Barrier', pieceId: enemy.id } },
+    { kind: 'Breath', intent: { type: 'UseCard', cardId: 'bad9', cardKind: 'Breath', pieceId: enemy.id } },
+    { kind: 'Mine', intent: { type: 'UseCard', cardId: 'bad10', cardKind: 'Mine', to: { x: 0, y: 0 } } },
+    { kind: 'Stealing', intent: { type: 'UseCard', cardId: 'bad11', cardKind: 'Stealing', targetPlayerId: 'p2' } },
+  ];
+
+  for (const c of invalidCases) {
+    const state = {
+      ...base,
+      hands: {
+        ...base.hands,
+        p1: [{ id: `card_${c.kind}`, kind: c.kind }],
+        p2: c.kind === 'Stealing' ? [] : base.hands.p2,
+      },
+      pieces: base.pieces.map((p) => (c.kind === 'Recharge' && p.id === own.id ? { ...p, activeSkillUsed: false } : p)),
+    };
+
+    const result = applyCommand(state, {
+      actorPlayerId: 'p1',
+      intent: { ...c.intent, cardId: `card_${c.kind}` },
+    });
+
+    assert.equal(result.validation.ok, false, `${c.kind} should be invalid`);
+  }
+
+  const notActive = applyCommand(base, {
+    actorPlayerId: 'p2',
+    intent: { type: 'UseCard', cardId: 'x', cardKind: 'Mine', to: { x: 0, y: 5 } },
+  });
+  assert.equal(notActive.validation.ok, false);
+  if (!notActive.validation.ok) {
+    assert.equal(notActive.validation.reason, 'NOT_ACTIVE_PLAYER');
+  }
+}
+
+// フェーズ5: RNGシード固定で再現可能
+{
+  const a = createInitialState({ rngSeed: 1234n });
+  const b = createInitialState({ rngSeed: 1234n });
+  const c = createInitialState({ rngSeed: 1235n });
+
+  assert.deepEqual(a.hands, b.hands);
+  assert.notDeepEqual(a.hands, c.hands);
+}

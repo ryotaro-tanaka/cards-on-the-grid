@@ -1,4 +1,5 @@
 import { applyEvent } from './applyEvent.js';
+import { buildDrawEvents, rollIndex } from './cardSystem.js';
 import type { Command, Event, GameState, Piece, PlayerId, ValidationResult } from './types.js';
 import { validateIntent } from './validateIntent.js';
 
@@ -47,8 +48,82 @@ function forwardDelta(state: GameState, owner: PlayerId): 1 | -1 {
   return isFirstPlayer(state, owner) ? 1 : -1;
 }
 
-function buildEvents(state: GameState, command: Command): Event[] {
-  const { intent } = command;
+function buildCombatEvents(state: GameState, attacker: Piece, to: { x: number; y: number }): Event[] {
+  const range = attacker.kind === 'Lancer' ? 2 : 1;
+  const delta = forwardDelta(state, attacker.owner);
+  const targetYValues = Array.from({ length: range }, (_, index) => to.y + delta * (index + 1)).filter(
+    (y) => y >= 0 && y < 7,
+  );
+
+  const defenders = state.pieces.filter(
+    (piece) => piece.owner !== attacker.owner && piece.position.x === to.x && targetYValues.includes(piece.position.y),
+  );
+
+  return defenders.map((defender) => {
+    const damage = attacker.stats.attack;
+    const defenderHpAfter = defender.currentHp - damage;
+    const defenderDefeated = defenderHpAfter <= 0;
+
+    return {
+      type: 'CombatResolved',
+      attackerPieceId: attacker.id,
+      defenderPieceId: defender.id,
+      damage,
+      defenderHpAfter,
+      defenderDefeated,
+    } satisfies Event;
+  });
+}
+
+function buildMineTriggerEvents(state: GameState, movedPieceId: string, owner: PlayerId, to: { x: number; y: number }): Event[] {
+  const mine = state.mines.find((m) => m.owner !== owner && m.position.x === to.x && m.position.y === to.y);
+  if (!mine) {
+    return [];
+  }
+
+  const movedPiece = state.pieces.find((piece) => piece.id === movedPieceId);
+  if (!movedPiece) {
+    return [];
+  }
+
+  const damage = 1;
+  const hpAfter = movedPiece.currentHp - damage;
+  return [
+    {
+      type: 'MineTriggered',
+      mineOwner: mine.owner,
+      triggeredByPieceId: movedPieceId,
+      position: to,
+      damage,
+      hpAfter,
+      defeated: hpAfter <= 0,
+    },
+  ];
+}
+
+function buildMovementEvents(state: GameState, attacker: Piece, to: { x: number; y: number }, withCombat: boolean): Event[] {
+  const events: Event[] = [
+    {
+      type: 'PieceMoved',
+      pieceId: attacker.id,
+      from: attacker.position,
+      to,
+    },
+    ...buildMineTriggerEvents(state, attacker.id, attacker.owner, to),
+  ];
+
+  if (withCombat) {
+    const projected = events.reduce((acc, event) => applyEvent(acc, event), state);
+    if (projected.pieces.some((piece) => piece.id === attacker.id)) {
+      events.push(...buildCombatEvents(projected, projected.pieces.find((p) => p.id === attacker.id)!, to));
+    }
+  }
+
+  return events;
+}
+
+function buildEvents(state: GameState, command: Command): { events: Event[]; rngState: GameState['rngState'] } {
+  const { intent, actorPlayerId } = command;
 
   if (intent.type === 'EndTurn') {
     const nextOwner = state.activePlayer === state.players[0] ? state.players[1] : state.players[0];
@@ -86,6 +161,7 @@ function buildEvents(state: GameState, command: Command): Event[] {
         stats: pending.stats,
         currentHp: pending.stats.maxHp,
         position: spawnTo,
+        activeSkillUsed: false,
       };
 
       events.push({
@@ -100,7 +176,64 @@ function buildEvents(state: GameState, command: Command): Event[] {
       };
     }
 
-    return events;
+    const draw = buildDrawEvents(nextOwner, state.hands[nextOwner] ?? [], state.rngState);
+    events.push(...draw.events);
+
+    return { events, rngState: draw.rngState };
+  }
+
+  if (intent.type === 'UseCard') {
+    const events: Event[] = [
+      {
+        type: 'CardUsed',
+        playerId: actorPlayerId,
+        cardId: intent.cardId,
+        cardKind: intent.cardKind,
+      },
+    ];
+
+    if (intent.cardKind === 'Move' || intent.cardKind === 'Assault') {
+      const piece = state.pieces.find((p) => p.id === intent.pieceId)!;
+      events.push(...buildMovementEvents(state, piece, intent.to!, intent.cardKind === 'Assault'));
+      return { events, rngState: state.rngState };
+    }
+
+    if (intent.cardKind === 'Arrowrain' || intent.cardKind === 'Rock Bombardment' || intent.cardKind === 'Lightning') {
+      const target = state.pieces.find((piece) => piece.id === intent.targetPieceId)!;
+      const damage = intent.cardKind === 'Arrowrain' ? 1 : intent.cardKind === 'Rock Bombardment' ? 2 : 3;
+      const hpAfter = target.currentHp - damage;
+      events.push({ type: 'PieceDamaged', pieceId: target.id, damage, hpAfter, defeated: hpAfter <= 0, source: 'Card' });
+      return { events, rngState: state.rngState };
+    }
+
+    if (intent.cardKind === 'Recharge') {
+      events.push({ type: 'ActiveSkillReset', pieceId: intent.pieceId! });
+      return { events, rngState: state.rngState };
+    }
+
+    if (intent.cardKind === 'Doping' || intent.cardKind === 'Barrier' || intent.cardKind === 'Breath') {
+      const attackDelta = intent.cardKind === 'Barrier' || intent.cardKind === 'Breath' ? 1 : 0;
+      const maxHpDelta = intent.cardKind === 'Doping' || intent.cardKind === 'Breath' ? 1 : 0;
+      const currentHpDelta = intent.cardKind === 'Doping' || intent.cardKind === 'Breath' ? 1 : 0;
+      events.push({ type: 'PieceBuffed', pieceId: intent.pieceId!, attackDelta, maxHpDelta, currentHpDelta });
+      return { events, rngState: state.rngState };
+    }
+
+    if (intent.cardKind === 'Mine') {
+      events.push({ type: 'MinePlaced', owner: actorPlayerId, position: intent.to! });
+      return { events, rngState: state.rngState };
+    }
+
+    const opponent = intent.targetPlayerId!;
+    const enemyHand = state.hands[opponent] ?? [];
+    const rolled = rollIndex(state.rngState, enemyHand.length);
+    events.push({
+      type: 'CardStolen',
+      fromPlayerId: opponent,
+      toPlayerId: actorPlayerId,
+      card: enemyHand[rolled.index],
+    });
+    return { events, rngState: rolled.rngState };
   }
 
   const attacker = state.pieces.find((p) => p.id === intent.pieceId);
@@ -108,42 +241,10 @@ function buildEvents(state: GameState, command: Command): Event[] {
     throw new Error('buildEvents called with invalid state: attacker piece not found');
   }
 
-  const nextEvents: Event[] = [
-    {
-      type: 'PieceMoved',
-      pieceId: attacker.id,
-      from: attacker.position,
-      to: intent.to,
-    },
-  ];
-
-  const range = attacker.kind === 'Lancer' ? 2 : 1;
-  const delta = forwardDelta(state, attacker.owner);
-  const targetYValues = Array.from({ length: range }, (_, index) => intent.to.y + delta * (index + 1)).filter(
-    (y) => y >= 0 && y < 7,
-  );
-
-  const defenders = state.pieces.filter(
-    (piece) =>
-      piece.owner !== attacker.owner && piece.position.x === intent.to.x && targetYValues.includes(piece.position.y),
-  );
-
-  for (const defender of defenders) {
-    const damage = attacker.stats.attack;
-    const defenderHpAfter = defender.currentHp - damage;
-    const defenderDefeated = defenderHpAfter <= 0;
-
-    nextEvents.push({
-      type: 'CombatResolved',
-      attackerPieceId: attacker.id,
-      defenderPieceId: defender.id,
-      damage,
-      defenderHpAfter,
-      defenderDefeated,
-    });
-  }
-
-  return nextEvents;
+  return {
+    events: buildMovementEvents(state, attacker, intent.to, true),
+    rngState: state.rngState,
+  };
 }
 
 export function applyCommand(
@@ -155,8 +256,11 @@ export function applyCommand(
     return { state, events: [], validation };
   }
 
-  const events = buildEvents(state, command);
-  let nextState = events.reduce((currentState, event) => applyEvent(currentState, event), state);
+  const { events, rngState } = buildEvents(state, command);
+  let nextState = events.reduce((currentState, event) => applyEvent(currentState, event), {
+    ...state,
+    rngState,
+  });
 
   const winner = determineWinner(nextState);
   if (winner && !events.some((event) => event.type === 'GameFinished')) {

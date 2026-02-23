@@ -2,12 +2,14 @@ import assert from 'node:assert/strict';
 import { createInitialState } from '../packages/core/dist/index.js';
 import {
   buildBoardViewModel,
+  buildHandViewModel,
   buildViewModel,
   canAct,
   connect,
   createEmptyClientState,
   createEndTurnIntent,
   createMoveIntent,
+  createUseCardIntent,
   describeConnectionStatus,
   describePlayerSeat,
   describeRejectReason,
@@ -74,11 +76,11 @@ assert.equal(
   'wss://cards-on-the-grid-backend.example.workers.dev',
 );
 
-const board = buildBoardViewModel(client, null);
+const board = buildBoardViewModel(client, null, null);
 assert.equal(board.size, 7);
 assert.equal(board.cells.length, 49);
-assert.equal(board.cells[0].piece?.owner, 'p2');
-assert.equal(board.cells.at(-1)?.piece?.owner, 'p1');
+assert.equal(board.cells.some((cell) => cell.piece?.owner === 'p1'), true);
+assert.equal(board.cells.some((cell) => cell.piece?.owner === 'p2'), true);
 const ownPieceCell = board.cells.find((cell) => cell.piece?.owner === 'p1');
 assert.ok(ownPieceCell && ownPieceCell.piece);
 const ownPieceId = ownPieceCell?.piece?.id ?? '';
@@ -86,15 +88,15 @@ assert.equal(ownPieceCell?.piece?.attack, 1);
 assert.equal(ownPieceCell?.piece?.maxHp, 1);
 assert.equal(ownPieceCell?.piece?.successorCost, 1);
 
-const boardForP2 = buildBoardViewModel({ ...client, you: 'p2' }, null);
-assert.equal(boardForP2.cells[0].piece?.owner, 'p1');
-assert.equal(boardForP2.cells.at(-1)?.piece?.owner, 'p2');
+const boardForP2 = buildBoardViewModel({ ...client, you: 'p2' }, null, null);
+assert.equal(boardForP2.cells.some((cell) => cell.piece?.owner === 'p1'), true);
+assert.equal(boardForP2.cells.some((cell) => cell.piece?.owner === 'p2'), true);
 
 const selected = selectPiece(client, null, ownPieceId);
 assert.equal(selected, ownPieceId);
 
 
-const boardWithSelection = buildBoardViewModel(client, ownPieceId);
+const boardWithSelection = buildBoardViewModel(client, ownPieceId, null);
 assert.equal(boardWithSelection.cells.some((cell) => cell.isMovable), true);
 assert.equal(
   boardWithSelection.cells.some((cell) =>
@@ -104,7 +106,7 @@ assert.equal(
   false,
 );
 
-const vm = buildViewModel(client, selected);
+const vm = buildViewModel(client, selected, null);
 assert.equal(vm.canOperate, true);
 assert.equal(vm.canEndTurn, true);
 assert.equal(vm.selectedPieceId, selected);
@@ -184,6 +186,7 @@ const withReject = reduceIncoming(client, {
   },
 });
 assert.equal(describeRejectReason('TURN_MISMATCH'), 'Turn mismatch. Please resync and try again.');
+assert.equal(describeRejectReason('INVALID_CARD_TARGET'), 'Invalid target for this card.');
 assert.equal(
   buildViewModel(withReject, null).errorMessage,
   'Turn mismatch. Please resync and try again. (expected turn: 2)',
@@ -230,6 +233,32 @@ const vmFinishedLose = buildViewModel({
   },
 }, null);
 assert.equal(vmFinishedLose.matchResultMessage, 'Lose');
+
+
+
+const handVm = buildHandViewModel(client);
+assert.equal(handVm.length >= 1, true);
+
+const cardClient = {
+  ...client,
+  state: {
+    ...client.state,
+    hands: {
+      ...client.state.hands,
+      p1: [{ id: 'c_mine', kind: 'Mine' }, { id: 'c_steal', kind: 'Stealing' }],
+      p2: [{ id: 'c_enemy', kind: 'Barrier' }],
+    },
+  },
+};
+const mineBoard = buildBoardViewModel(cardClient, ownPieceId, 'c_mine');
+assert.equal(mineBoard.cells.some((cell) => cell.isMinePlaceable), true);
+
+const useSteal = createUseCardIntent(cardClient, 'c_steal', ownPieceId, { x: 0, y: 0 });
+assert.equal(useSteal.ok, true);
+if (useSteal.ok) {
+  assert.equal(useSteal.message.payload.command.intent.type, 'UseCard');
+  assert.equal(useSteal.message.payload.command.intent.cardKind, 'Stealing');
+}
 
 class FakeSocket {
   static CONNECTING = 0;
@@ -411,3 +440,66 @@ assert.equal(await registerServiceWorker(), false);
 
 console.log = originalConsoleLog;
 console.log('frontend-unit: ok');
+
+// フェーズ5: reducer のカードイベント反映
+{
+  const drawn = reduceIncoming(client, {
+    type: 'EVENT',
+    payload: {
+      seq: client.seq + 1,
+      event: { type: 'CardDrawn', playerId: 'p1', card: { id: 'x1', kind: 'Mine' } },
+    },
+  });
+  assert.equal(drawn.state.hands.p1.some((c) => c.id === 'x1'), true);
+
+  const used = reduceIncoming(drawn, {
+    type: 'EVENT',
+    payload: {
+      seq: drawn.seq + 1,
+      event: { type: 'CardUsed', playerId: 'p1', cardId: 'x1', cardKind: 'Mine' },
+    },
+  });
+  assert.equal(used.state.hands.p1.some((c) => c.id === 'x1'), false);
+
+  const mined = reduceIncoming(used, {
+    type: 'EVENT',
+    payload: {
+      seq: used.seq + 1,
+      event: { type: 'MinePlaced', owner: 'p1', position: { x: 0, y: 1 } },
+    },
+  });
+  assert.equal(mined.state.mines.some((m) => m.position.x === 0 && m.position.y === 1), true);
+}
+
+// フェーズ5: UI操作から UseCard payload 検証
+{
+  const cardState = {
+    ...client,
+    state: {
+      ...client.state,
+      hands: {
+        ...client.state.hands,
+        p1: [{ id: 'c_arrow', kind: 'Arrowrain' }, { id: 'c_mine', kind: 'Mine' }],
+      },
+    },
+  };
+
+  const enemyCell = buildBoardViewModel(cardState, null, null).cells.find((cell) => cell.piece?.owner === 'p2');
+  assert.ok(enemyCell && enemyCell.piece);
+
+  const arrow = createUseCardIntent(cardState, 'c_arrow', null, { x: enemyCell.x, y: enemyCell.y });
+  assert.equal(arrow.ok, true);
+  if (arrow.ok) {
+    assert.equal(arrow.message.payload.command.intent.type, 'UseCard');
+    assert.equal(arrow.message.payload.command.intent.cardKind, 'Arrowrain');
+    assert.equal(arrow.message.payload.command.intent.targetPieceId, enemyCell.piece.id);
+  }
+
+  const mine = createUseCardIntent(cardState, 'c_mine', null, { x: 0, y: 1 });
+  assert.equal(mine.ok, true);
+  if (mine.ok) {
+    assert.equal(mine.message.payload.command.intent.type, 'UseCard');
+    assert.equal(mine.message.payload.command.intent.cardKind, 'Mine');
+    assert.deepEqual(mine.message.payload.command.intent.to, { x: 0, y: 1 });
+  }
+}

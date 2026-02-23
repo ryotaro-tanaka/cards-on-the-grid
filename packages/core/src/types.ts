@@ -14,6 +14,24 @@ export type CreatureKind =
   | 'GiantBoa'
   | 'Alchemist';
 
+export type CardKind =
+  | 'Move'
+  | 'Assault'
+  | 'Arrowrain'
+  | 'Rock Bombardment'
+  | 'Lightning'
+  | 'Recharge'
+  | 'Doping'
+  | 'Barrier'
+  | 'Breath'
+  | 'Mine'
+  | 'Stealing';
+
+export type CardInstance = {
+  id: string;
+  kind: CardKind;
+};
+
 export type CreatureStats = {
   maxHp: number;
   attack: number;
@@ -27,6 +45,7 @@ export type Piece = {
   stats: CreatureStats;
   currentHp: number;
   position: Coord;
+  activeSkillUsed: boolean;
 };
 
 export type PendingSuccessor = {
@@ -37,12 +56,23 @@ export type PendingSuccessor = {
   turnsRemaining: number;
 };
 
-export type GamePhase = 'Reinforcement' | 'Main' | 'End';
+export type Mine = {
+  owner: PlayerId;
+  position: Coord;
+};
+
+export type GamePhase = 'Reinforcement' | 'Draw' | 'Main' | 'End';
 
 export type GameStatus = 'InProgress' | 'Finished';
 
 export type TurnState = {
   movedPieceIds: PieceId[];
+};
+
+export type RngState = {
+  seed: bigint;
+  state: bigint;
+  nextCardInstanceNo: number;
 };
 
 export type GameState = {
@@ -55,6 +85,9 @@ export type GameState = {
   turnState: TurnState;
   pendingSuccessors: PendingSuccessor[];
   pieces: Piece[];
+  hands: Record<PlayerId, CardInstance[]>;
+  mines: Mine[];
+  rngState: RngState;
 };
 
 export type EndTurn = { type: 'EndTurn' };
@@ -65,7 +98,17 @@ export type Move = {
   to: Coord;
 };
 
-export type Intent = EndTurn | Move;
+export type UseCard = {
+  type: 'UseCard';
+  cardId: string;
+  cardKind: CardKind;
+  pieceId?: PieceId;
+  to?: Coord;
+  targetPlayerId?: PlayerId;
+  targetPieceId?: PieceId;
+};
+
+export type Intent = EndTurn | Move | UseCard;
 
 export type Command = {
   actorPlayerId: PlayerId;
@@ -96,10 +139,74 @@ export type CombatResolved = {
   defenderDefeated: boolean;
 };
 
+export type PieceDamaged = {
+  type: 'PieceDamaged';
+  pieceId: PieceId;
+  damage: number;
+  hpAfter: number;
+  defeated: boolean;
+  source: 'Card' | 'Mine';
+};
+
+export type PieceBuffed = {
+  type: 'PieceBuffed';
+  pieceId: PieceId;
+  attackDelta: number;
+  maxHpDelta: number;
+  currentHpDelta: number;
+};
+
+export type ActiveSkillReset = {
+  type: 'ActiveSkillReset';
+  pieceId: PieceId;
+};
+
+export type MineTriggered = {
+  type: 'MineTriggered';
+  mineOwner: PlayerId;
+  triggeredByPieceId: PieceId;
+  position: Coord;
+  damage: number;
+  hpAfter: number;
+  defeated: boolean;
+};
+
 export type SuccessorSpawned = {
   type: 'SuccessorSpawned';
   pendingId: string;
   piece: Piece;
+};
+
+export type CardDrawn = {
+  type: 'CardDrawn';
+  playerId: PlayerId;
+  card: CardInstance;
+};
+
+export type CardDiscardedForDrawLimit = {
+  type: 'CardDiscardedForDrawLimit';
+  playerId: PlayerId;
+  discardedCardId: string;
+};
+
+export type CardUsed = {
+  type: 'CardUsed';
+  playerId: PlayerId;
+  cardId: string;
+  cardKind: CardKind;
+};
+
+export type CardStolen = {
+  type: 'CardStolen';
+  fromPlayerId: PlayerId;
+  toPlayerId: PlayerId;
+  card: CardInstance;
+};
+
+export type MinePlaced = {
+  type: 'MinePlaced';
+  owner: PlayerId;
+  position: Coord;
 };
 
 export type GameFinished = {
@@ -107,7 +214,21 @@ export type GameFinished = {
   winner: PlayerId;
 };
 
-export type Event = TurnEnded | PieceMoved | CombatResolved | SuccessorSpawned | GameFinished;
+export type Event =
+  | TurnEnded
+  | PieceMoved
+  | CombatResolved
+  | PieceDamaged
+  | PieceBuffed
+  | ActiveSkillReset
+  | MineTriggered
+  | SuccessorSpawned
+  | CardDrawn
+  | CardDiscardedForDrawLimit
+  | CardUsed
+  | CardStolen
+  | MinePlaced
+  | GameFinished;
 
 export type InvalidReason =
   | 'NOT_ACTIVE_PLAYER'
@@ -119,7 +240,17 @@ export type InvalidReason =
   | 'INVALID_MOVE_DISTANCE'
   | 'SAME_POSITION'
   | 'CELL_OCCUPIED'
-  | 'MOVE_ALREADY_USED_THIS_TURN';
+  | 'MOVE_ALREADY_USED_THIS_TURN'
+  | 'CARD_NOT_FOUND_IN_HAND'
+  | 'CARD_KIND_MISMATCH'
+  | 'TARGET_PLAYER_INVALID'
+  | 'TARGET_PLAYER_HAND_EMPTY'
+  | 'TARGET_PIECE_NOT_FOUND'
+  | 'TARGET_PIECE_NOT_OWNED_BY_ACTOR'
+  | 'TARGET_PIECE_NOT_ENEMY'
+  | 'INVALID_CARD_TARGET'
+  | 'INVALID_CARD_DESTINATION'
+  | 'ACTIVE_SKILL_NOT_APPLICABLE';
 
 export type ValidationResult =
   | { ok: true }

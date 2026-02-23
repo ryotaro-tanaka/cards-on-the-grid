@@ -1,3 +1,5 @@
+import { buildDrawEvents, createRngState } from './cardSystem.js';
+import { applyEvent } from './applyEvent.js';
 import type { Coord, CreatureKind, CreatureStats, GameState, Piece, PlayerId } from './types.js';
 
 export const CREATURE_BASE_STATS: Record<CreatureKind, CreatureStats> = {
@@ -39,6 +41,7 @@ export type InitialStateOptions = {
     p1: InitialCreatureSet;
     p2: InitialCreatureSet;
   };
+  rngSeed?: bigint;
 };
 
 function buildPiece(owner: PlayerId, kind: CreatureKind, position: Coord): Piece {
@@ -51,6 +54,7 @@ function buildPiece(owner: PlayerId, kind: CreatureKind, position: Coord): Piece
     stats,
     currentHp: stats.maxHp,
     position,
+    activeSkillUsed: false,
   };
 }
 
@@ -71,7 +75,7 @@ function buildInitialPieces(
 export function createInitialState(options?: InitialStateOptions): GameState {
   const [firstPlayerId, secondPlayerId] = options?.players ?? ['p1', 'p2'];
 
-  return {
+  let state: GameState = {
     turn: 1,
     players: [firstPlayerId, secondPlayerId],
     activePlayer: firstPlayerId,
@@ -83,5 +87,23 @@ export function createInitialState(options?: InitialStateOptions): GameState {
     },
     pendingSuccessors: [],
     pieces: buildInitialPieces(firstPlayerId, secondPlayerId, options?.creaturesByPlayer),
+    hands: {
+      [firstPlayerId]: [],
+      [secondPlayerId]: [],
+    },
+    mines: [],
+    rngState: createRngState(options?.rngSeed ?? 1n),
   };
+
+  for (const playerId of state.players) {
+    for (let i = 0; i < 3; i += 1) {
+      const draw = buildDrawEvents(playerId, state.hands[playerId] ?? [], state.rngState);
+      state = draw.events.reduce((acc, event) => applyEvent(acc, event), {
+        ...state,
+        rngState: draw.rngState,
+      });
+    }
+  }
+
+  return state;
 }
