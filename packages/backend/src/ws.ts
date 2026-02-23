@@ -77,6 +77,12 @@ export type SyncMessage = {
 
 export type ServerMessage = WelcomeMessage | EventMessage | RejectMessage | SyncMessage;
 
+export function safeJsonStringify(value: unknown): string {
+  return JSON.stringify(value, (_key, nestedValue) =>
+    typeof nestedValue === 'bigint' ? nestedValue.toString() : nestedValue,
+  );
+}
+
 export const REJECT_REASONS = [
   'TURN_MISMATCH',
   'NOT_ACTIVE_PLAYER',

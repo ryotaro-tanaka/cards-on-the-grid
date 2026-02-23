@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
-import { openRoom, startRoom, handleIntentMessage, handleResyncRequestMessage, createWelcomeMessage } from '../packages/backend/dist/index.js';
+import {
+  openRoom,
+  startRoom,
+  handleIntentMessage,
+  handleResyncRequestMessage,
+  createWelcomeMessage,
+  safeJsonStringify,
+} from '../packages/backend/dist/index.js';
 
 let room = startRoom(openRoom('room-backend'), () => 0.1);
 let seqBeforeCardIntent = room.seq;
@@ -10,6 +17,20 @@ let seqBeforeCardIntent = room.seq;
   assert.equal(Array.isArray(welcomeP1.payload.state.hands.p2), true);
   assert.equal(welcomeP1.payload.state.hands.p2.length, 0);
   assert.equal(welcomeP1.payload.state.hands.p1.length > 0, true);
+}
+
+// BigIntを含むstateのシリアライズ互換
+{
+  const welcomeP1 = createWelcomeMessage(room, 'p1');
+  assert.throws(() => JSON.stringify(welcomeP1), /BigInt/);
+
+  const encoded = safeJsonStringify(welcomeP1);
+  assert.equal(typeof encoded, 'string');
+
+  const decoded = JSON.parse(encoded);
+  assert.equal(decoded.type, 'WELCOME');
+  assert.equal(typeof decoded.payload.state.rngState.seed, 'string');
+  assert.equal(typeof decoded.payload.state.rngState.state, 'string');
 }
 
 // 2クライアント連続操作時の順序保証（seq単調増加）

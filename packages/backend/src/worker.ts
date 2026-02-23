@@ -7,6 +7,7 @@ import {
   handleIntentMessage,
   handleResyncRequestMessage,
   openRoom,
+  safeJsonStringify,
   startRoom,
   type ClientMessage,
   type ServerMessage,
@@ -232,12 +233,12 @@ export class RoomDO {
   private send(socket: WebSocket, payload: ServerMessage | ServerMessage[]): void {
     if (Array.isArray(payload)) {
       for (const message of payload) {
-        socket.send(JSON.stringify(message));
+        socket.send(safeJsonStringify(message));
       }
       return;
     }
 
-    socket.send(JSON.stringify(payload));
+    socket.send(safeJsonStringify(payload));
   }
 
   private broadcast(messages: ServerMessage[]): void {
