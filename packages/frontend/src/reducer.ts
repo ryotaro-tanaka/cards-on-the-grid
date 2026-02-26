@@ -1,4 +1,4 @@
-import { applyEvent } from '../../core/src/index.js';
+import { applyEvent } from '../../core/dist/index.js';
 import type { ClientAction, ClientState, DebugMessage, IncomingMessage, OutgoingMessage } from './types.js';
 
 const MAX_DEBUG_MESSAGES = 30;
